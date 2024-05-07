@@ -8,5 +8,5 @@ int main()
     //std::cout << Chess::Bitboards::pieces[1][1].Count();
     Chess::PieceBitboardContainer a("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR");
     
-    a;
+    std::cout << "Hello world!\n";
 }
