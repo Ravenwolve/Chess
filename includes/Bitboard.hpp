@@ -43,5 +43,5 @@ namespace Chess {
         PieceBitboardContainer(const std::string& shortFEN);
     };
 
-    class Mask;
+    //class Mask;
 }

@@ -1,5 +1,5 @@
 #include <bit>
-#include "Bitboard.hpp"
+#include "../includes/Bitboard.hpp"
 
 // There is issue with bitNumber > 63 because of checking disabled for better performance
 bool Chess::Get(const Bitboard& obj, const uint8_t bitNumber) {
@@ -17,12 +17,12 @@ void Chess::Set(Bitboard& obj, const uint8_t bitNumber) {
 
 Chess::PieceBitboardContainer::PieceBitboardContainer() noexcept {
     _pieces[White] = {
-        Bitboard(0b11111111) << 8, // Pawns / FEN: P
-        Bitboard(0b10000001),      // Rooks / FEN: R
-        Bitboard(0b01000010),      // Knights / FEN: N
-        Bitboard(0b00100100),      // Bishops / FEN: B
-        Bitboard(0b00001000),      // Queen / FEN: Q
-        Bitboard(0b00010000)      // King / FEN: K
+        0b11111111ULL << 8, // Pawns / FEN: P
+        0b10000001ULL,      // Rooks / FEN: R
+        0b01000010ULL,      // Knights / FEN: N
+        0b00100100ULL,      // Bishops / FEN: B
+        0b00001000ULL,      // Queen / FEN: Q
+        0b00010000ULL      // King / FEN: K
     };
     // Black
     _pieces[Black] = {
@@ -94,7 +94,7 @@ Chess::ParseFEN(const std::string &FEN) {
     NumberOfMove number;
     std::stringstream ss(FEN);
 
-    for (size_t i = 0; i < 4; ++i)
+    for (size_t i = 0UL; i < 4UL; ++i)
         ss >> splittedFEN[i];
     ss >> count >> number;
 
@@ -118,18 +118,17 @@ Chess::ParseFEN(const std::string &FEN) {
         );
 }
 
-class Chess::Mask {
-private:
-    __inline static const std::array<std::array<Bitboard, 16>, 2> straightRays = {
+namespace Chess::Mask {
+    static constexpr std::array<std::array<Bitboard, 16>, 2> straightRays = {
         // -> =
-        (Bitboard)0b11111111,
-        (Bitboard)0b11111111 << 8,
-        (Bitboard)0b11111111 << 16,
-        (Bitboard)0b11111111 << 24,
-        (Bitboard)0b11111111 << 32,
-        (Bitboard)0b11111111 << 40,
-        (Bitboard)0b11111111 << 48,
-        (Bitboard)0b11111111 << 56,
+        0b11111111ULL,
+        0b11111111ULL << 8,
+        0b11111111ULL << 16,
+        0b11111111ULL << 24,
+        0b11111111ULL << 32,
+        0b11111111ULL << 40,
+        0b11111111ULL << 48,
+        0b11111111ULL << 56,
         // -> ||
         1ULL   | (1ULL << 8)   | (1ULL << 16)   | (1ULL << 24)   | (1ULL << 32)   | (1ULL << 40)   | (1ULL << 48)   | (1ULL << 56),
         2ULL   | (2ULL << 8)   | (2ULL << 16)   | (2ULL << 24)   | (2ULL << 32)   | (2ULL << 40)   | (2ULL << 48)   | (2ULL << 56),
@@ -141,7 +140,7 @@ private:
         128ULL | (128ULL << 8) | (128ULL << 16) | (128ULL << 24) | (128ULL << 32) | (128ULL << 40) | (128ULL << 48) | (128ULL << 56)
     };
 
-    __inline static const std::array<std::array<Bitboard, 15>, 2> diagonalRays = {
+    static constexpr std::array<std::array<Bitboard, 15>, 2> diagonalRays = {
         // -> //
         1ULL << 7,
         1ULL << 6 | 1ULL << (7 + 8),
@@ -178,10 +177,10 @@ private:
 
     consteval static std::array<Bitboard, 64> CalculateKnightMasks() {
         std::array<Bitboard, 64> masks;
-        Bitboard sourceBit;
-        const uint8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
+        Bitboard sourceBit = 1;
+        const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
 
-        for (uint8_t i = 0; i < masks.size(); ++i) {
+        for (uint8_t i = 0U; i < masks.size(); ++i) {
             sourceBit = 1ULL << i;
             masks[i] = 0ULL;
             if (!(straightRays[1][0] | straightRays[0][6] | straightRays[0][7]) & sourceBit)
@@ -207,9 +206,9 @@ private:
     consteval static std::array<Bitboard, 64> CalculateKingMasks() {
         std::array<Bitboard, 64> masks;
         Bitboard sourceBit;
-        const uint8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
+        const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
 
-        for (uint8_t i = 0; i < masks.size(); ++i) {
+        for (uint8_t i = 0U; i < masks.size(); ++i) {
             sourceBit = 1ULL << i;
             masks[i] = 0ULL;
             if (!straightRays[0][0] & sourceBit) {
@@ -232,27 +231,24 @@ private:
 
     consteval static std::array<Bitboard, 64> CalculateRookMasks() {
         std::array<Bitboard, 64> masks;
-        int bitNumber;
-        const uint8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
+        const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
 
-        for (uint8_t i = 0; i < masks.size(); ++i)
+        for (uint8_t i = 0U; i < masks.size(); ++i)
             masks[i] = ~(1ULL << i) & (straightRays[0][i / 8] | straightRays[1][i % 8]);
         return masks;
     }
 
     consteval static std::array<Bitboard, 64> CalculateBishopMasks() {
         std::array<Bitboard, 64> masks;
-        int bitNumber;
-        const uint8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
+        const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
 
-        for (uint8_t i = 0; i < masks.size(); ++i)
+        for (uint8_t i = 0U; i < masks.size(); ++i)
             masks[i] = ~(1ULL << i) & (diagonalRays[1][i / 8 + i % 8] | diagonalRays[0][i / 8]); // not ready
         return masks;
     }
-public:
 
-    __inline static const std::array<Bitboard, 64> knightMasks = Chess::Mask::CalculateKnightMasks();
-    __inline static const std::array<Bitboard, 64> rookMasks = Chess::Mask::CalculateRookMasks();
-    __inline static const std::array<Bitboard, 64> bishopMasks = Chess::Mask::CalculateBishopMasks();
-    __inline static const std::array<Bitboard, 64> kingMasks = Chess::Mask::CalculateKingMasks();
+    static constexpr std::array<Bitboard, 64> knightMasks = Chess::Mask::CalculateKnightMasks();
+    static constexpr std::array<Bitboard, 64> rookMasks = Chess::Mask::CalculateRookMasks();
+    static constexpr std::array<Bitboard, 64> bishopMasks = Chess::Mask::CalculateBishopMasks();
+    static constexpr std::array<Bitboard, 64> kingMasks = Chess::Mask::CalculateKingMasks();
 };
