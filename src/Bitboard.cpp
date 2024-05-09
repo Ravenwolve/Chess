@@ -1,5 +1,4 @@
-#include <bit>
-#include "../includes/Bitboard.hpp"
+#include "Bitboard.hpp"
 
 // There is issue with bitNumber > 63 because of checking disabled for better performance
 bool Chess::Get(const Bitboard& obj, const uint8_t bitNumber) {
@@ -26,12 +25,12 @@ Chess::PieceBitboardContainer::PieceBitboardContainer() noexcept {
     };
     // Black
     _pieces[Black] = {
-        Bitboard(0b11111111) << 48, // Pawns / FEN: p
-        Bitboard(0b10000001) << 56, // Rooks / FEN: r
-        Bitboard(0b01000010) << 56, // Knights / FEN: n
-        Bitboard(0b00100100) << 56, // Bishops / FEN: b
-        Bitboard(0b00001000) << 56, // Queen / FEN: q
-        Bitboard(0b00010000) << 56 // King / FEN: k
+        0b11111111ULL << 48, // Pawns / FEN: p
+        0b10000001ULL << 56, // Rooks / FEN: r
+        0b01000010ULL << 56, // Knights / FEN: n
+        0b00100100ULL << 56, // Bishops / FEN: b
+        0b00001000ULL << 56, // Queen / FEN: q
+        0b00010000ULL << 56 // King / FEN: k
     };
 
     UpdateBitboards();
@@ -40,10 +39,8 @@ Chess::PieceBitboardContainer::PieceBitboardContainer() noexcept {
 Chess::PieceBitboardContainer::PieceBitboardContainer(const PieceBitboardContainer &other) noexcept = default;
 
 Chess::PieceBitboardContainer::PieceBitboardContainer(const std::string& shortFEN) {
-    for (Bitboard& item : _pieces[White])
-        item = 0;
-    for (Bitboard& item : _pieces[Black])
-        item = 0;
+    for (size_t i = 0UL; i < 12UL; ++i)
+        _pieces[White][i] = _pieces[Black][i] = 0;
 
     uint8_t x = 0, y = 7;
     Color color;
@@ -121,89 +118,98 @@ Chess::ParseFEN(const std::string &FEN) {
 namespace Chess::Mask {
     static constexpr std::array<std::array<Bitboard, 16>, 2> straightRays = {
         // -> =
-        0b11111111ULL,
-        0b11111111ULL << 8,
-        0b11111111ULL << 16,
-        0b11111111ULL << 24,
-        0b11111111ULL << 32,
-        0b11111111ULL << 40,
-        0b11111111ULL << 48,
-        0b11111111ULL << 56,
+        std::array<Bitboard, 16> {
+            0b11111111ULL,
+            0b11111111ULL << 8,
+            0b11111111ULL << 16,
+            0b11111111ULL << 24,
+            0b11111111ULL << 32,
+            0b11111111ULL << 40,
+            0b11111111ULL << 48,
+            0b11111111ULL << 56
+        },
         // -> ||
-        1ULL   | (1ULL << 8)   | (1ULL << 16)   | (1ULL << 24)   | (1ULL << 32)   | (1ULL << 40)   | (1ULL << 48)   | (1ULL << 56),
-        2ULL   | (2ULL << 8)   | (2ULL << 16)   | (2ULL << 24)   | (2ULL << 32)   | (2ULL << 40)   | (2ULL << 48)   | (2ULL << 56),
-        4ULL   | (4ULL << 8)   | (4ULL << 16)   | (4ULL << 24)   | (4ULL << 32)   | (4ULL << 40)   | (4ULL << 48)   | (4ULL << 56),
-        8ULL   | (8ULL << 8)   | (8ULL << 16)   | (8ULL << 24)   | (8ULL << 32)   | (8ULL << 40)   | (8ULL << 48)   | (8ULL << 56),
-        16ULL  | (16ULL << 8)  | (16ULL << 16)  | (16ULL << 24)  | (16ULL << 32)  | (16ULL << 40)  | (16ULL << 48)  | (16ULL << 56),
-        32ULL  | (32ULL << 8)  | (32ULL << 16)  | (32ULL << 24)  | (32ULL << 32)  | (32ULL << 40)  | (32ULL << 48)  | (32ULL << 56),
-        64ULL  | (64ULL << 8)  | (64ULL << 16)  | (64ULL << 24)  | (64ULL << 32)  | (64ULL << 40)  | (64ULL << 48)  | (64ULL << 56),
-        128ULL | (128ULL << 8) | (128ULL << 16) | (128ULL << 24) | (128ULL << 32) | (128ULL << 40) | (128ULL << 48) | (128ULL << 56)
+        std::array<Bitboard, 16> {
+            1ULL   | (1ULL << 8)   | (1ULL << 16)   | (1ULL << 24)   | (1ULL << 32)   | (1ULL << 40)   | (1ULL << 48)   | (1ULL << 56),
+            2ULL   | (2ULL << 8)   | (2ULL << 16)   | (2ULL << 24)   | (2ULL << 32)   | (2ULL << 40)   | (2ULL << 48)   | (2ULL << 56),
+            4ULL   | (4ULL << 8)   | (4ULL << 16)   | (4ULL << 24)   | (4ULL << 32)   | (4ULL << 40)   | (4ULL << 48)   | (4ULL << 56),
+            8ULL   | (8ULL << 8)   | (8ULL << 16)   | (8ULL << 24)   | (8ULL << 32)   | (8ULL << 40)   | (8ULL << 48)   | (8ULL << 56),
+            16ULL  | (16ULL << 8)  | (16ULL << 16)  | (16ULL << 24)  | (16ULL << 32)  | (16ULL << 40)  | (16ULL << 48)  | (16ULL << 56),
+            32ULL  | (32ULL << 8)  | (32ULL << 16)  | (32ULL << 24)  | (32ULL << 32)  | (32ULL << 40)  | (32ULL << 48)  | (32ULL << 56),
+            64ULL  | (64ULL << 8)  | (64ULL << 16)  | (64ULL << 24)  | (64ULL << 32)  | (64ULL << 40)  | (64ULL << 48)  | (64ULL << 56),
+            128ULL | (128ULL << 8) | (128ULL << 16) | (128ULL << 24) | (128ULL << 32) | (128ULL << 40) | (128ULL << 48) | (128ULL << 56)
+        }
     };
 
     static constexpr std::array<std::array<Bitboard, 15>, 2> diagonalRays = {
         // -> //
-        1ULL << 7,
-        1ULL << 6 | 1ULL << (7 + 8),
-        1ULL << 5 | 1ULL << (6 + 8) | 1ULL << (7 + 16),
-        1ULL << 4 | 1ULL << (5 + 8) | 1ULL << (6 + 16) | 1ULL << (7 + 24),
-        1ULL << 3 | 1ULL << (4 + 8) | 1ULL << (5 + 16) | 1ULL << (6 + 24) | 1ULL << (7 + 32),
-        1ULL << 2 | 1ULL << (3 + 8) | 1ULL << (4 + 16) | 1ULL << (5 + 24) | 1ULL << (6 + 32) | 1ULL << (7 + 40),
-        1ULL << 1 | 1ULL << (2 + 8) | 1ULL << (3 + 16) | 1ULL << (4 + 24) | 1ULL << (5 + 32) | 1ULL << (6 + 40) | 1ULL << (7 + 48),  
-        1ULL      | 1ULL << (1 + 8) | 1ULL << (2 + 16) | 1ULL << (3 + 24) | 1ULL << (4 + 32) | 1ULL << (5 + 40) | 1ULL << (6 + 48) | 1ULL << (7 + 56),
-                    1ULL << 8       | 1ULL << (1 + 16) | 1ULL << (2 + 24) | 1ULL << (3 + 32) | 1ULL << (4 + 40) | 1ULL << (5 + 48) | 1ULL << (6 + 56),
-                                      1ULL << 16       | 1ULL << (1 + 24) | 1ULL << (2 + 32) | 1ULL << (3 + 40) | 1ULL << (4 + 48) | 1ULL << (5 + 56),
-                                                         1ULL << 24       | 1ULL << (1 + 32) | 1ULL << (2 + 40) | 1ULL << (3 + 48) | 1ULL << (4 + 56),
-                                                                            1ULL << 32       | 1ULL << (1 + 40) | 1ULL << (2 + 48) | 1ULL << (3 + 56),
-                                                                                               1ULL << 40       | 1ULL << (1 + 48) | 1ULL << (2 + 56),
-                                                                                                                  1ULL << 48       | 1ULL << (1 + 56),
-                                                                                                                                     1ULL << 56,
+        std::array<Bitboard, 15> {
+            1ULL << 7,
+            1ULL << 6 | 1ULL << (7 + 8),
+            1ULL << 5 | 1ULL << (6 + 8) | 1ULL << (7 + 16),
+            1ULL << 4 | 1ULL << (5 + 8) | 1ULL << (6 + 16) | 1ULL << (7 + 24),
+            1ULL << 3 | 1ULL << (4 + 8) | 1ULL << (5 + 16) | 1ULL << (6 + 24) | 1ULL << (7 + 32),
+            1ULL << 2 | 1ULL << (3 + 8) | 1ULL << (4 + 16) | 1ULL << (5 + 24) | 1ULL << (6 + 32) | 1ULL << (7 + 40),
+            1ULL << 1 | 1ULL << (2 + 8) | 1ULL << (3 + 16) | 1ULL << (4 + 24) | 1ULL << (5 + 32) | 1ULL << (6 + 40) | 1ULL << (7 + 48),  
+            1ULL      | 1ULL << (1 + 8) | 1ULL << (2 + 16) | 1ULL << (3 + 24) | 1ULL << (4 + 32) | 1ULL << (5 + 40) | 1ULL << (6 + 48) | 1ULL << (7 + 56),
+                        1ULL << 8       | 1ULL << (1 + 16) | 1ULL << (2 + 24) | 1ULL << (3 + 32) | 1ULL << (4 + 40) | 1ULL << (5 + 48) | 1ULL << (6 + 56),
+                                          1ULL << 16       | 1ULL << (1 + 24) | 1ULL << (2 + 32) | 1ULL << (3 + 40) | 1ULL << (4 + 48) | 1ULL << (5 + 56),
+                                                             1ULL << 24       | 1ULL << (1 + 32) | 1ULL << (2 + 40) | 1ULL << (3 + 48) | 1ULL << (4 + 56),
+                                                                                1ULL << 32       | 1ULL << (1 + 40) | 1ULL << (2 + 48) | 1ULL << (3 + 56),
+                                                                                                   1ULL << 40       | 1ULL << (1 + 48) | 1ULL << (2 + 56),
+                                                                                                                      1ULL << 48       | 1ULL << (1 + 56),
+                                                                                                                                         1ULL << 56
+        },
         // -> \\.
-        1ULL,
-        1ULL << 1 | 1ULL << 8,
-        1ULL << 2 | 1ULL << (1 + 8) | 1ULL << 16,
-        1ULL << 3 | 1ULL << (2 + 8) | 1ULL << (1 + 16) | 1ULL << 24,
-        1ULL << 4 | 1ULL << (3 + 8) | 1ULL << (2 + 16) | 1ULL << (1 + 24) | 1ULL << 32,
-        1ULL << 5 | 1ULL << (4 + 8) | 1ULL << (3 + 16) | 1ULL << (2 + 24) | 1ULL << (1 + 32) | 1ULL << 40,
-        1ULL << 6 | 1ULL << (5 + 8) | 1ULL << (4 + 16) | 1ULL << (3 + 24) | 1ULL << (2 + 32) | 1ULL << (1 + 40) | 1ULL << 48,  
-        1ULL << 7 | 1ULL << (6 + 8) | 1ULL << (5 + 16) | 1ULL << (4 + 24) | 1ULL << (3 + 32) | 1ULL << (2 + 40) | 1ULL << (1 + 48) | 1ULL << 56,
-                    1ULL << (7 + 8) | 1ULL << (6 + 16) | 1ULL << (5 + 24) | 1ULL << (4 + 32) | 1ULL << (3 + 40) | 1ULL << (2 + 48) | 1ULL << (1 + 56),
-                                      1ULL << (7 + 16) | 1ULL << (6 + 24) | 1ULL << (5 + 32) | 1ULL << (4 + 40) | 1ULL << (3 + 48) | 1ULL << (2 + 56),
-                                                         1ULL << (7 + 24) | 1ULL << (6 + 32) | 1ULL << (5 + 40) | 1ULL << (4 + 48) | 1ULL << (3 + 56),
-                                                                            1ULL << (7 + 24) | 1ULL << (6 + 40) | 1ULL << (5 + 48) | 1ULL << (4 + 56),
-                                                                                               1ULL << (7 + 40) | 1ULL << (6 + 48) | 1ULL << (5 + 56),
-                                                                                                                  1ULL << (7 + 48) | 1ULL << (6 + 56),
-                                                                                                                                     1ULL << (7 + 56)
+        std::array<Bitboard, 15> {
+            1ULL,
+            1ULL << 1 | 1ULL << 8,
+            1ULL << 2 | 1ULL << (1 + 8) | 1ULL << 16,
+            1ULL << 3 | 1ULL << (2 + 8) | 1ULL << (1 + 16) | 1ULL << 24,
+            1ULL << 4 | 1ULL << (3 + 8) | 1ULL << (2 + 16) | 1ULL << (1 + 24) | 1ULL << 32,
+            1ULL << 5 | 1ULL << (4 + 8) | 1ULL << (3 + 16) | 1ULL << (2 + 24) | 1ULL << (1 + 32) | 1ULL << 40,
+            1ULL << 6 | 1ULL << (5 + 8) | 1ULL << (4 + 16) | 1ULL << (3 + 24) | 1ULL << (2 + 32) | 1ULL << (1 + 40) | 1ULL << 48,  
+            1ULL << 7 | 1ULL << (6 + 8) | 1ULL << (5 + 16) | 1ULL << (4 + 24) | 1ULL << (3 + 32) | 1ULL << (2 + 40) | 1ULL << (1 + 48) | 1ULL << 56,
+                        1ULL << (7 + 8) | 1ULL << (6 + 16) | 1ULL << (5 + 24) | 1ULL << (4 + 32) | 1ULL << (3 + 40) | 1ULL << (2 + 48) | 1ULL << (1 + 56),
+                                          1ULL << (7 + 16) | 1ULL << (6 + 24) | 1ULL << (5 + 32) | 1ULL << (4 + 40) | 1ULL << (3 + 48) | 1ULL << (2 + 56),
+                                                             1ULL << (7 + 24) | 1ULL << (6 + 32) | 1ULL << (5 + 40) | 1ULL << (4 + 48) | 1ULL << (3 + 56),
+                                                                                1ULL << (7 + 24) | 1ULL << (6 + 40) | 1ULL << (5 + 48) | 1ULL << (4 + 56),
+                                                                                                   1ULL << (7 + 40) | 1ULL << (6 + 48) | 1ULL << (5 + 56),
+                                                                                                                      1ULL << (7 + 48) | 1ULL << (6 + 56),
+                                                                                                                                         1ULL << (7 + 56)
+        }
     };
 
-    consteval static std::array<Bitboard, 64> CalculateKnightMasks() {
+    consteval static std::array<Bitboard, 64> CalculateForKnight() {
         std::array<Bitboard, 64> masks;
-        Bitboard sourceBit = 1;
+        Bitboard sourceBit = 1ULL;
         const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
 
         for (uint8_t i = 0U; i < masks.size(); ++i) {
             sourceBit = 1ULL << i;
             masks[i] = 0ULL;
-            if (!(straightRays[1][0] | straightRays[0][6] | straightRays[0][7]) & sourceBit)
+            if (!((straightRays[1][0] | straightRays[0][6] | straightRays[0][7]) & sourceBit))
                 masks[i] |= sourceBit << (UP + UP + LEFT);
-            if (!(straightRays[1][7] | straightRays[0][6] | straightRays[0][7]) & sourceBit)
+            if (!((straightRays[1][7] | straightRays[0][6] | straightRays[0][7]) & sourceBit))
                 masks[i] |= sourceBit << (UP + UP + RIGHT);
-            if (!(straightRays[1][0] | straightRays[1][1] | straightRays[0][7]) & sourceBit)
+            if (!((straightRays[1][0] | straightRays[1][1] | straightRays[0][7]) & sourceBit))
                 masks[i] |= sourceBit << (UP + LEFT + LEFT);
-            if (!(straightRays[1][6] | straightRays[1][7] | straightRays[0][7]) & sourceBit)
+            if (!((straightRays[1][6] | straightRays[1][7] | straightRays[0][7]) & sourceBit))
                 masks[i] |= sourceBit << (UP + RIGHT + RIGHT);
-            if (!(straightRays[1][0] | straightRays[1][1] | straightRays[0][0]) & sourceBit)
-                masks[i] |= sourceBit << (DOWN + LEFT + LEFT);
-            if (!(straightRays[1][6] | straightRays[1][7] | straightRays[0][0]) & sourceBit)
-                masks[i] |= sourceBit << (DOWN + RIGHT + RIGHT);
-            if (!(straightRays[1][0] | straightRays[0][0] | straightRays[0][1]) & sourceBit)
-                masks[i] |= sourceBit << (DOWN + DOWN + LEFT);
-            if (!(straightRays[1][7] | straightRays[0][0] | straightRays[0][1]) & sourceBit)
-                masks[i] |= sourceBit << (DOWN + DOWN + RIGHT);
+            // A negative shifts are Undefined Behaviour on compile-time 
+            if (!((straightRays[1][0] | straightRays[1][1] | straightRays[0][0]) & sourceBit))
+                masks[i] |= sourceBit >> -(DOWN + LEFT + LEFT);
+            if (!((straightRays[1][6] | straightRays[1][7] | straightRays[0][0]) & sourceBit))
+                masks[i] |= sourceBit >> -(DOWN + RIGHT + RIGHT);
+            if (!((straightRays[1][0] | straightRays[0][0] | straightRays[0][1]) & sourceBit))
+                masks[i] |= sourceBit >> -(DOWN + DOWN + LEFT);
+            if (!((straightRays[1][7] | straightRays[0][0] | straightRays[0][1]) & sourceBit))
+                masks[i] |= sourceBit >> -(DOWN + DOWN + RIGHT);
         }
         return masks;
     }
 
-    consteval static std::array<Bitboard, 64> CalculateKingMasks() {
+    consteval static std::array<Bitboard, 64> CalculateForKing() {
         std::array<Bitboard, 64> masks;
         Bitboard sourceBit;
         const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
@@ -211,25 +217,25 @@ namespace Chess::Mask {
         for (uint8_t i = 0U; i < masks.size(); ++i) {
             sourceBit = 1ULL << i;
             masks[i] = 0ULL;
-            if (!straightRays[0][0] & sourceBit) {
-                masks[i] |= sourceBit << (DOWN);
-                if (!straightRays[1][0] & sourceBit)
-                    masks[i] |= (sourceBit << (DOWN + LEFT)) | (sourceBit << LEFT);
-                if (!straightRays[1][7] & sourceBit)
-                    masks[i] |= (sourceBit << (DOWN + RIGHT)) | (sourceBit << RIGHT);
+            if (!(straightRays[0][0] & sourceBit)) {
+                masks[i] |= sourceBit >> -DOWN;
+                if (!(straightRays[1][0] & sourceBit))
+                    masks[i] |= (sourceBit >> -(DOWN + LEFT)) | (sourceBit >> -LEFT);
+                if (!(straightRays[1][7] & sourceBit))
+                    masks[i] |= (sourceBit >> -(DOWN + RIGHT)) | (sourceBit << RIGHT);
             }
-            if (!straightRays[0][7] & sourceBit) {
-                masks[i] |= sourceBit << (UP);
-                if (!straightRays[1][0] & sourceBit)
-                    masks[i] |= (sourceBit << (UP + LEFT)) | (sourceBit << LEFT);
-                if (!straightRays[1][7] & sourceBit)
+            if (!(straightRays[0][7] & sourceBit)) {
+                masks[i] |= sourceBit << UP;
+                if (!(straightRays[1][0] & sourceBit))
+                    masks[i] |= (sourceBit << (UP + LEFT)) | (sourceBit >> -LEFT);
+                if (!(straightRays[1][7] & sourceBit))
                     masks[i] |= (sourceBit << (UP + RIGHT)) | (sourceBit << RIGHT);
             }
         }
         return masks;
     }
 
-    consteval static std::array<Bitboard, 64> CalculateRookMasks() {
+    consteval static std::array<Bitboard, 64> CalculateForRook() {
         std::array<Bitboard, 64> masks;
         const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
 
@@ -238,17 +244,69 @@ namespace Chess::Mask {
         return masks;
     }
 
-    consteval static std::array<Bitboard, 64> CalculateBishopMasks() {
+    consteval static std::array<Bitboard, 64> CalculateForBishop() {
         std::array<Bitboard, 64> masks;
+        Bitboard sourceBit;
         const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
 
-        for (uint8_t i = 0U; i < masks.size(); ++i)
-            masks[i] = ~(1ULL << i) & (diagonalRays[1][i / 8 + i % 8] | diagonalRays[0][i / 8]); // not ready
+        for (uint8_t i = 0U; i < masks.size(); ++i) {
+            sourceBit = 1ULL << i;
+            masks[i] = 0;
+            for (uint8_t j = 0U; j < 15U; ++j)
+                if (sourceBit & diagonalRays[0][j]) {
+                    masks[i] |= ~sourceBit & diagonalRays[0][j];
+                    break;
+                }
+            for (uint8_t j = 0U; j < 15U; ++j)
+                if (sourceBit & diagonalRays[1][j]) {
+                    masks[i] |= ~sourceBit & diagonalRays[1][j];
+                    break;
+                }
+        }
+
         return masks;
     }
 
-    static constexpr std::array<Bitboard, 64> knightMasks = Chess::Mask::CalculateKnightMasks();
-    static constexpr std::array<Bitboard, 64> rookMasks = Chess::Mask::CalculateRookMasks();
-    static constexpr std::array<Bitboard, 64> bishopMasks = Chess::Mask::CalculateBishopMasks();
-    static constexpr std::array<Bitboard, 64> kingMasks = Chess::Mask::CalculateKingMasks();
+    static constexpr std::array<Bitboard, 64> knightMasks = Chess::Mask::CalculateForKnight();
+    static constexpr std::array<Bitboard, 64> rookMasks = Chess::Mask::CalculateForRook();
+    static constexpr std::array<Bitboard, 64> bishopMasks = Chess::Mask::CalculateForBishop();
+    static constexpr std::array<Bitboard, 64> kingMasks = Chess::Mask::CalculateForKing();
+    //static constexpr std::array<Bitboard, 64> pawnMasks = Chess::Mask::CalculateForPawn();
+
+    consteval static std::array<Bitboard, 64> CalculateQueenMasks() {
+        std::array<Bitboard, 64> masks;
+
+        for (uint8_t i = 0; i < 64; ++i)
+            masks[i] = rookMasks[i] | bishopMasks[i];
+
+        return masks;
+    }
+
+    static constexpr std::array<Bitboard, 64> queenMasks = Chess::Mask::CalculateQueenMasks();
 };
+
+
+
+Chess::Bitboard Chess::GetPawnAttacks(Chess::Color color, Chess::Bitboard bitboard) noexcept {
+    if (color == White)
+        return (bitboard << 7) & ~Mask::straightRays[1][0] | (bitboard << 9) & ~Mask::straightRays[1][7];
+    else return (bitboard >> 7) & ~Mask::straightRays[1][0] | (bitboard >> 9) & ~Mask::straightRays[1][7];
+}
+
+Chess::Bitboard Chess::GetPawnAdvances(Chess::Color color, Chess::Bitboard bitboard) noexcept {
+    if (color == White)
+        return (bitboard << 8 | ((bitboard & Mask::straightRays[0][1]) << 16));
+    else return ((bitboard >> 8) | ((bitboard & Mask::straightRays[0][6]) >> 16));
+}
+
+Chess::Bitboard Chess::GetKnightAttacks(Chess::Bitboard bitboard) noexcept {
+    Bitboard lr1 = bitboard >> 1 & ~Mask::straightRays[1][7] | bitboard << 1 & ~Mask::straightRays[1][0];
+    Bitboard lr2 = bitboard >> 2 & ~(Mask::straightRays[1][6] | Mask::straightRays[1][7]) |
+                   bitboard << 2 & ~(Mask::straightRays[1][0] | Mask::straightRays[1][1]);
+    return lr1 << 16 | lr1 >> 16 | lr2 << 8 | lr2 >> 8;
+}
+
+Chess::Bitboard Chess::GetKingAttacks(Chess::Bitboard bitboard) noexcept {
+    Bitboard lr1 = bitboard >> 1 & ~Mask::straightRays[1][7] | bitboard << 1 & ~Mask::straightRays[1][0];
+    return lr1 | lr1 << 8 | lr1 >> 8 | bitboard << 8 | bitboard >> 8;
+}

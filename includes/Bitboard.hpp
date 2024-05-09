@@ -43,5 +43,11 @@ namespace Chess {
         PieceBitboardContainer(const std::string& shortFEN);
     };
 
+    Bitboard GetPawnAttacks(Color color, Bitboard bitboard) noexcept;
+    Bitboard GetPawnAdvances(Color color, Bitboard bitboard) noexcept;
+    Bitboard GetKnightAttacks() noexcept;
+    Bitboard GetKingAttacks() noexcept;
+
     //class Mask;
 }
+
