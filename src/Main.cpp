@@ -19,5 +19,5 @@ void PrintBitboard(Chess::Core::Bitboard bb) {
 }
 
 int main() {
-    
+
 }

@@ -1,6 +1,6 @@
 #include "Bitboard.hpp"
-#include <unordered_map>
 #include <memory>
+#include <vector>
 
 // There is issue with bitNumber > 63 because of checking disabled for better performance
 bool Chess::Core::Get(const Bitboard& obj, const uint8_t bitNumber) {
@@ -37,7 +37,7 @@ Chess::Core::BoardRepresentation::BoardRepresentation()
     }, _sides {
         _pieces[White][Pawn] | _pieces[White][Rook] | _pieces[White][Knight] | _pieces[White][Bishop] | _pieces[White][Queen] | _pieces[White][King],
         _pieces[Black][Pawn] | _pieces[Black][Rook] | _pieces[Black][Knight] | _pieces[Black][Bishop] | _pieces[Black][Queen] | _pieces[Black][King]
-    }, _unionAll(_sides[White] | _sides[Black]) {}
+    }, _unionAll(_sides[White] | _sides[Black]) { }
 
 Chess::Core::BoardRepresentation::BoardRepresentation(const BoardRepresentation &other) noexcept = default;
 
@@ -238,7 +238,7 @@ namespace Chess::Core::Cache {
 };
 
 namespace Chess::Core::BitScan {
-    constexpr uint8_t bitScanIndex[64] = {
+    constexpr std::array<uint8_t, 64> bitScanIndex {
         0, 47, 1, 56, 48, 27, 2, 60,
         57, 49, 41, 37, 28, 16, 3, 61,
         54, 58, 35, 52, 50, 42, 21, 44,
@@ -278,7 +278,7 @@ namespace Chess::Core::BitScan {
 
 namespace Chess::Core::Cache {
     
-    const int rookRelevantBits[64] {
+    const std::array<uint8_t, 64> rookRelevantBits {
         12, 11, 11, 11, 11, 11, 11, 12,
         11, 10, 10, 10, 10, 10, 10, 11,
         11, 10, 10, 10, 10, 10, 10, 11,
@@ -289,7 +289,7 @@ namespace Chess::Core::Cache {
         12, 11, 11, 11, 11, 11, 11, 12
     };
 
-    const int bishopRelevantBits[64] {
+    const std::array<uint8_t, 64> bishopRelevantBits {
         6, 5, 5, 5, 5, 5, 5, 6,
         5, 5, 5, 5, 5, 5, 5, 5,
         5, 5, 7, 7, 7, 7, 5, 5,
@@ -303,7 +303,7 @@ namespace Chess::Core::Cache {
     /** Rook magic numbers
     * @authors maksimKorzh
     */
-    const uint64_t rookMagics[64] = {
+    const std::array<uint64_t, 64> rookMagics {
         0xa8002c000108020ULL,
         0x6c00049b0002001ULL,
         0x100200010090040ULL,
@@ -373,7 +373,7 @@ namespace Chess::Core::Cache {
     /** Bishop magic numbers
     * @authors maksimKorzh
     */
-    const uint64_t bishopMagics[64] = {
+    const std::array<uint64_t, 64> bishopMagics {
         0x89a1121896040240ULL,
         0x2004844802002010ULL,
         0x2068080051921000ULL,
@@ -440,8 +440,8 @@ namespace Chess::Core::Cache {
         0x40102000a0a60140ULL,
     };
 
-    Bitboard rookCache[64][4096];
-    Bitboard bishopCache[64][512];
+    std::array<std::vector<Bitboard>, 64> rookCache; //[64][4096];
+    std::array<std::vector<Bitboard>, 64> bishopCache; //[64][512];
 
     uint8_t Hash(uint8_t square, Bitboard occupancy, Piece piece) {
         if (piece == Rook)
@@ -541,13 +541,16 @@ namespace Chess::Core::Cache {
         for (uint8_t square = 0; square < 64; ++square) {
             count = rookRelevantBits[square];
             variants = 1 << count;
+            rookCache[square].reserve(variants);
             for (uint16_t index = 0; index < variants; ++index) {
                 occupancy = FindOccupancy(index, rookMasks[square], count);
                 hash = Hash(square, occupancy, Rook);
                 rookCache[square][hash] = GetRookSlidingAttacks(square, occupancy);
             }
+
             count = bishopRelevantBits[square];
             variants = 1 << count;
+            bishopCache[square].reserve(variants);
             for (uint16_t index = 0; index < variants; ++index) {
                 occupancy = FindOccupancy(index, bishopMasks[square], count);
                 hash = Hash(square, occupancy, Bishop);
