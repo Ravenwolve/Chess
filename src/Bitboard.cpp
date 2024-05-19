@@ -1,12 +1,14 @@
 #include "Bitboard.hpp"
+#include <unordered_map>
+#include <memory>
 
 // There is issue with bitNumber > 63 because of checking disabled for better performance
-bool Chess::Get(const Bitboard& obj, const uint8_t bitNumber) {
+bool Chess::Core::Get(const Bitboard& obj, const uint8_t bitNumber) {
     return obj & (1ULL << bitNumber);
 }
 
 template <bool bitValue>
-void Chess::Set(Bitboard& obj, const uint8_t bitNumber) {
+void Chess::Core::Set(Bitboard& obj, const uint8_t bitNumber) {
     if constexpr (bitValue)
         obj |= 1ULL << bitNumber;
     else obj &= ~(1ULL << bitNumber);
@@ -14,31 +16,32 @@ void Chess::Set(Bitboard& obj, const uint8_t bitNumber) {
 
 // --
 
-Chess::PieceBitboardContainer::PieceBitboardContainer() noexcept {
-    _pieces[White] = {
-        0b11111111ULL << 8, // Pawns / FEN: P
-        0b10000001ULL,      // Rooks / FEN: R
-        0b01000010ULL,      // Knights / FEN: N
-        0b00100100ULL,      // Bishops / FEN: B
-        0b00001000ULL,      // Queen / FEN: Q
-        0b00010000ULL      // King / FEN: K
-    };
-    // Black
-    _pieces[Black] = {
-        0b11111111ULL << 48, // Pawns / FEN: p
-        0b10000001ULL << 56, // Rooks / FEN: r
-        0b01000010ULL << 56, // Knights / FEN: n
-        0b00100100ULL << 56, // Bishops / FEN: b
-        0b00001000ULL << 56, // Queen / FEN: q
-        0b00010000ULL << 56 // King / FEN: k
-    };
+Chess::Core::BoardRepresentation::BoardRepresentation()
+    noexcept : _pieces {
+        std::array<Bitboard, 6>{
+            0b11111111ULL << 8, // Pawns / FEN: P
+            0b10000001ULL,      // Rooks / FEN: R
+            0b01000010ULL,      // Knights / FEN: N
+            0b00100100ULL,      // Bishops / FEN: B
+            0b00001000ULL,      // Queen / FEN: Q
+            0b00010000ULL      // King / FEN: K
+        },
+        std::array<Bitboard, 6>{
+            0b11111111ULL << 48, // Pawns / FEN: p
+            0b10000001ULL << 56, // Rooks / FEN: r
+            0b01000010ULL << 56, // Knights / FEN: n
+            0b00100100ULL << 56, // Bishops / FEN: b
+            0b00001000ULL << 56, // Queen / FEN: q
+            0b00010000ULL << 56 // King / FEN: k
+        }
+    }, _sides {
+        _pieces[White][Pawn] | _pieces[White][Rook] | _pieces[White][Knight] | _pieces[White][Bishop] | _pieces[White][Queen] | _pieces[White][King],
+        _pieces[Black][Pawn] | _pieces[Black][Rook] | _pieces[Black][Knight] | _pieces[Black][Bishop] | _pieces[Black][Queen] | _pieces[Black][King]
+    }, _unionAll(_sides[White] | _sides[Black]) {}
 
-    UpdateBitboards();
-}
+Chess::Core::BoardRepresentation::BoardRepresentation(const BoardRepresentation &other) noexcept = default;
 
-Chess::PieceBitboardContainer::PieceBitboardContainer(const PieceBitboardContainer &other) noexcept = default;
-
-Chess::PieceBitboardContainer::PieceBitboardContainer(const std::string& shortFEN) {
+Chess::Core::BoardRepresentation::BoardRepresentation(const std::string& shortFEN) {
     for (size_t i = 0UL; i < 12UL; ++i)
         _pieces[White][i] = _pieces[Black][i] = 0;
 
@@ -74,18 +77,18 @@ Chess::PieceBitboardContainer::PieceBitboardContainer(const std::string& shortFE
     UpdateBitboards();
 }
 
-void Chess::PieceBitboardContainer::UpdateBitboards() noexcept {
+void Chess::Core::BoardRepresentation::UpdateBitboards() noexcept {
     _sides[Black] = _sides[White] = 0;
     for (Bitboard item : _pieces[White])
         _sides[White] |= item;
     for (Bitboard item : _pieces[Black])
         _sides[Black] |= item;
 
-    _union = _sides[White] | _sides[Black];
+    _unionAll = _sides[White] | _sides[Black];
 }
 
-std::tuple<Chess::ShortFEN, Chess::Color, Chess::Castling, Chess::EnPassant, Chess::MovesWithoutCapturing, Chess::NumberOfMove>
-Chess::ParseFEN(const std::string &FEN) {
+std::tuple<Chess::Core::ShortFEN, Chess::Color, Chess::Core::Castling, Chess::Core::EnPassant, Chess::Core::MovesWithoutCapturing, Chess::Core::NumberOfMove>
+Chess::Core::ParseFEN(const std::string &FEN) {
     std::string splittedFEN[4];
     MovesWithoutCapturing count;
     NumberOfMove number;
@@ -115,7 +118,7 @@ Chess::ParseFEN(const std::string &FEN) {
         );
 }
 
-namespace Chess::Mask {
+namespace Chess::Core::Cache {
     static constexpr std::array<std::array<Bitboard, 16>, 2> straightRays = {
         // -> =
         std::array<Bitboard, 16> {
@@ -180,67 +183,15 @@ namespace Chess::Mask {
         }
     };
 
-    consteval static std::array<Bitboard, 64> CalculateForKnight() {
-        std::array<Bitboard, 64> masks;
-        Bitboard sourceBit = 1ULL;
-        const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
-
-        for (uint8_t i = 0U; i < masks.size(); ++i) {
-            sourceBit = 1ULL << i;
-            masks[i] = 0ULL;
-            if (!((straightRays[1][0] | straightRays[0][6] | straightRays[0][7]) & sourceBit))
-                masks[i] |= sourceBit << (UP + UP + LEFT);
-            if (!((straightRays[1][7] | straightRays[0][6] | straightRays[0][7]) & sourceBit))
-                masks[i] |= sourceBit << (UP + UP + RIGHT);
-            if (!((straightRays[1][0] | straightRays[1][1] | straightRays[0][7]) & sourceBit))
-                masks[i] |= sourceBit << (UP + LEFT + LEFT);
-            if (!((straightRays[1][6] | straightRays[1][7] | straightRays[0][7]) & sourceBit))
-                masks[i] |= sourceBit << (UP + RIGHT + RIGHT);
-            // A negative shifts are Undefined Behaviour on compile-time 
-            if (!((straightRays[1][0] | straightRays[1][1] | straightRays[0][0]) & sourceBit))
-                masks[i] |= sourceBit >> -(DOWN + LEFT + LEFT);
-            if (!((straightRays[1][6] | straightRays[1][7] | straightRays[0][0]) & sourceBit))
-                masks[i] |= sourceBit >> -(DOWN + RIGHT + RIGHT);
-            if (!((straightRays[1][0] | straightRays[0][0] | straightRays[0][1]) & sourceBit))
-                masks[i] |= sourceBit >> -(DOWN + DOWN + LEFT);
-            if (!((straightRays[1][7] | straightRays[0][0] | straightRays[0][1]) & sourceBit))
-                masks[i] |= sourceBit >> -(DOWN + DOWN + RIGHT);
-        }
-        return masks;
-    }
-
-    consteval static std::array<Bitboard, 64> CalculateForKing() {
-        std::array<Bitboard, 64> masks;
-        Bitboard sourceBit;
-        const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
-
-        for (uint8_t i = 0U; i < masks.size(); ++i) {
-            sourceBit = 1ULL << i;
-            masks[i] = 0ULL;
-            if (!(straightRays[0][0] & sourceBit)) {
-                masks[i] |= sourceBit >> -DOWN;
-                if (!(straightRays[1][0] & sourceBit))
-                    masks[i] |= (sourceBit >> -(DOWN + LEFT)) | (sourceBit >> -LEFT);
-                if (!(straightRays[1][7] & sourceBit))
-                    masks[i] |= (sourceBit >> -(DOWN + RIGHT)) | (sourceBit << RIGHT);
-            }
-            if (!(straightRays[0][7] & sourceBit)) {
-                masks[i] |= sourceBit << UP;
-                if (!(straightRays[1][0] & sourceBit))
-                    masks[i] |= (sourceBit << (UP + LEFT)) | (sourceBit >> -LEFT);
-                if (!(straightRays[1][7] & sourceBit))
-                    masks[i] |= (sourceBit << (UP + RIGHT)) | (sourceBit << RIGHT);
-            }
-        }
-        return masks;
-    }
-
     consteval static std::array<Bitboard, 64> CalculateForRook() {
         std::array<Bitboard, 64> masks;
         const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
 
         for (uint8_t i = 0U; i < masks.size(); ++i)
-            masks[i] = ~(1ULL << i) & (straightRays[0][i / 8] | straightRays[1][i % 8]);
+            masks[i] = (~(1ULL << i) & (straightRays[0][i / 8] | straightRays[1][i % 8])) &
+            ~((i > 8 ? straightRays[0][0] : 0ULL) | (i < 56 ? straightRays[0][7] : 0ULL) |
+            (i % 8 ? straightRays[1][0] : 0ULL) | ((i + 1) % 8 ? straightRays[1][7] : 0ULL));
+
         return masks;
     }
 
@@ -248,6 +199,7 @@ namespace Chess::Mask {
         std::array<Bitboard, 64> masks;
         Bitboard sourceBit;
         const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
+        const Bitboard notFrame = ~(straightRays[0][0] | straightRays[0][7] | straightRays[1][0] | straightRays[1][7]);
 
         for (uint8_t i = 0U; i < masks.size(); ++i) {
             sourceBit = 1ULL << i;
@@ -262,15 +214,15 @@ namespace Chess::Mask {
                     masks[i] |= ~sourceBit & diagonalRays[1][j];
                     break;
                 }
+            masks[i] &= notFrame;
         }
-
         return masks;
     }
 
-    static constexpr std::array<Bitboard, 64> knightMasks = Chess::Mask::CalculateForKnight();
-    static constexpr std::array<Bitboard, 64> rookMasks = Chess::Mask::CalculateForRook();
-    static constexpr std::array<Bitboard, 64> bishopMasks = Chess::Mask::CalculateForBishop();
-    static constexpr std::array<Bitboard, 64> kingMasks = Chess::Mask::CalculateForKing();
+    //static constexpr std::array<Bitboard, 64> knightMasks = CalculateForKnight();
+    static constexpr std::array<Bitboard, 64> rookMasks = CalculateForRook();
+    static constexpr std::array<Bitboard, 64> bishopMasks = CalculateForBishop();
+    //static constexpr std::array<Bitboard, 64> kingMasks = CalculateForKing();
     //static constexpr std::array<Bitboard, 64> pawnMasks = Chess::Mask::CalculateForPawn();
 
     consteval static std::array<Bitboard, 64> CalculateQueenMasks() {
@@ -282,31 +234,363 @@ namespace Chess::Mask {
         return masks;
     }
 
-    static constexpr std::array<Bitboard, 64> queenMasks = Chess::Mask::CalculateQueenMasks();
+    static constexpr std::array<Bitboard, 64> queenMasks = CalculateQueenMasks();
 };
 
+namespace Chess::Core::BitScan {
+    constexpr uint8_t bitScanIndex[64] = {
+        0, 47, 1, 56, 48, 27, 2, 60,
+        57, 49, 41, 37, 28, 16, 3, 61,
+        54, 58, 35, 52, 50, 42, 21, 44,
+        38, 32, 29, 23, 17, 11, 4, 62,
+        46, 55, 26, 59, 40, 36, 15, 53,
+        34, 51, 20, 43, 31, 22, 10, 45,
+        25, 39, 14, 33, 19, 30, 9, 24,
+        13, 18, 8, 12, 7, 6, 5, 63
+    };
 
+    /**
+     * @author Kim Walisch (2012)
+     * @return index (0..63) of least significant one bit
+     */
+    // For search of the least significant bit
+    constexpr uint8_t Forward(Bitboard bitboard) {
+        const Bitboard debruijn64 = 0x03f79d71b4cb0a89ULL;
+        return bitScanIndex[((bitboard ^ (bitboard - 1)) * debruijn64) >> 58];
+    }
 
-Chess::Bitboard Chess::GetPawnAttacks(Chess::Color color, Chess::Bitboard bitboard) noexcept {
-    if (color == White)
-        return (bitboard << 7) & ~Mask::straightRays[1][0] | (bitboard << 9) & ~Mask::straightRays[1][7];
-    else return (bitboard >> 7) & ~Mask::straightRays[1][0] | (bitboard >> 9) & ~Mask::straightRays[1][7];
+    /**
+     * @authors Kim Walisch, Mark Dickinson
+     * @return index (0..63) of most significant one bit
+     */
+    // For search of the most significant bit
+    constexpr uint8_t Reverse(Bitboard bitboard) {
+        const Bitboard debruijn64 = 0x03f79d71b4cb0a89ULL;
+        bitboard |= bitboard >> 1;
+        bitboard |= bitboard >> 2;
+        bitboard |= bitboard >> 4;
+        bitboard |= bitboard >> 8;
+        bitboard |= bitboard >> 16;
+        bitboard |= bitboard >> 32;
+        return bitScanIndex[(bitboard * debruijn64) >> 58];
+    }
 }
 
-Chess::Bitboard Chess::GetPawnAdvances(Chess::Color color, Chess::Bitboard bitboard) noexcept {
-    if (color == White)
-        return (bitboard << 8 | ((bitboard & Mask::straightRays[0][1]) << 16));
-    else return ((bitboard >> 8) | ((bitboard & Mask::straightRays[0][6]) >> 16));
+namespace Chess::Core::Cache {
+    
+    const int rookRelevantBits[64] {
+        12, 11, 11, 11, 11, 11, 11, 12,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        11, 10, 10, 10, 10, 10, 10, 11,
+        12, 11, 11, 11, 11, 11, 11, 12
+    };
+
+    const int bishopRelevantBits[64] {
+        6, 5, 5, 5, 5, 5, 5, 6,
+        5, 5, 5, 5, 5, 5, 5, 5,
+        5, 5, 7, 7, 7, 7, 5, 5,
+        5, 5, 7, 9, 9, 7, 5, 5,
+        5, 5, 7, 9, 9, 7, 5, 5,
+        5, 5, 7, 7, 7, 7, 5, 5,
+        5, 5, 5, 5, 5, 5, 5, 5,
+        6, 5, 5, 5, 5, 5, 5, 6
+    };
+
+    /** Rook magic numbers
+    * @authors maksimKorzh
+    */
+    const uint64_t rookMagics[64] = {
+        0xa8002c000108020ULL,
+        0x6c00049b0002001ULL,
+        0x100200010090040ULL,
+        0x2480041000800801ULL,
+        0x280028004000800ULL,
+        0x900410008040022ULL,
+        0x280020001001080ULL,
+        0x2880002041000080ULL,
+        0xa000800080400034ULL,
+        0x4808020004000ULL,
+        0x2290802004801000ULL,
+        0x411000d00100020ULL,
+        0x402800800040080ULL,
+        0xb000401004208ULL,
+        0x2409000100040200ULL,
+        0x1002100004082ULL,
+        0x22878001e24000ULL,
+        0x1090810021004010ULL,
+        0x801030040200012ULL,
+        0x500808008001000ULL,
+        0xa08018014000880ULL,
+        0x8000808004000200ULL,
+        0x201008080010200ULL,
+        0x801020000441091ULL,
+        0x800080204005ULL,
+        0x1040200040100048ULL,
+        0x120200402082ULL,
+        0xd14880480100080ULL,
+        0x12040280080080ULL,
+        0x100040080020080ULL,
+        0x9020010080800200ULL,
+        0x813241200148449ULL,
+        0x491604001800080ULL,
+        0x100401000402001ULL,
+        0x4820010021001040ULL,
+        0x400402202000812ULL,
+        0x209009005000802ULL,
+        0x810800601800400ULL,
+        0x4301083214000150ULL,
+        0x204026458e001401ULL,
+        0x40204000808000ULL,
+        0x8001008040010020ULL,
+        0x8410820820420010ULL,
+        0x1003001000090020ULL,
+        0x804040008008080ULL,
+        0x12000810020004ULL,
+        0x1000100200040208ULL,
+        0x430000a044020001ULL,
+        0x280009023410300ULL,
+        0xe0100040002240ULL,
+        0x200100401700ULL,
+        0x2244100408008080ULL,
+        0x8000400801980ULL,
+        0x2000810040200ULL,
+        0x8010100228810400ULL,
+        0x2000009044210200ULL,
+        0x4080008040102101ULL,
+        0x40002080411d01ULL,
+        0x2005524060000901ULL,
+        0x502001008400422ULL,
+        0x489a000810200402ULL,
+        0x1004400080a13ULL,
+        0x4000011008020084ULL,
+        0x26002114058042ULL,
+    };
+
+    /** Bishop magic numbers
+    * @authors maksimKorzh
+    */
+    const uint64_t bishopMagics[64] = {
+        0x89a1121896040240ULL,
+        0x2004844802002010ULL,
+        0x2068080051921000ULL,
+        0x62880a0220200808ULL,
+        0x4042004000000ULL,
+        0x100822020200011ULL,
+        0xc00444222012000aULL,
+        0x28808801216001ULL,
+        0x400492088408100ULL,
+        0x201c401040c0084ULL,
+        0x840800910a0010ULL,
+        0x82080240060ULL,
+        0x2000840504006000ULL,
+        0x30010c4108405004ULL,
+        0x1008005410080802ULL,
+        0x8144042209100900ULL,
+        0x208081020014400ULL,
+        0x4800201208ca00ULL,
+        0xf18140408012008ULL,
+        0x1004002802102001ULL,
+        0x841000820080811ULL,
+        0x40200200a42008ULL,
+        0x800054042000ULL,
+        0x88010400410c9000ULL,
+        0x520040470104290ULL,
+        0x1004040051500081ULL,
+        0x2002081833080021ULL,
+        0x400c00c010142ULL,
+        0x941408200c002000ULL,
+        0x658810000806011ULL,
+        0x188071040440a00ULL,
+        0x4800404002011c00ULL,
+        0x104442040404200ULL,
+        0x511080202091021ULL,
+        0x4022401120400ULL,
+        0x80c0040400080120ULL,
+        0x8040010040820802ULL,
+        0x480810700020090ULL,
+        0x102008e00040242ULL,
+        0x809005202050100ULL,
+        0x8002024220104080ULL,
+        0x431008804142000ULL,
+        0x19001802081400ULL,
+        0x200014208040080ULL,
+        0x3308082008200100ULL,
+        0x41010500040c020ULL,
+        0x4012020c04210308ULL,
+        0x208220a202004080ULL,
+        0x111040120082000ULL,
+        0x6803040141280a00ULL,
+        0x2101004202410000ULL,
+        0x8200000041108022ULL,
+        0x21082088000ULL,
+        0x2410204010040ULL,
+        0x40100400809000ULL,
+        0x822088220820214ULL,
+        0x40808090012004ULL,
+        0x910224040218c9ULL,
+        0x402814422015008ULL,
+        0x90014004842410ULL,
+        0x1000042304105ULL,
+        0x10008830412a00ULL,
+        0x2520081090008908ULL,
+        0x40102000a0a60140ULL,
+    };
+
+    Bitboard rookCache[64][4096];
+    Bitboard bishopCache[64][512];
+
+    uint8_t Hash(uint8_t square, Bitboard occupancy, Piece piece) {
+        if (piece == Rook)
+            return (occupancy * rookMagics[square]) >> (64 - rookRelevantBits[square]);
+        else return (occupancy * bishopMagics[square]) >> (64 - bishopRelevantBits[square]);
+    }
+
+    Bitboard FindOccupancy(uint16_t index, Bitboard primaryMoveMask, uint8_t countOfInterestingSquares) {
+        Bitboard occupancy = 0ULL;
+        // loop over the range of possible squares within primary move mask (without blocking pieces)
+        for (uint8_t i = 0, currentSquare; i < countOfInterestingSquares; ++i) {
+            // get LS1B index of attacks mask
+            currentSquare = BitScan::Forward(primaryMoveMask);
+            // pop LS1B in attack map
+            primaryMoveMask &= ~(1ULL << currentSquare);
+            // make sure occupancy is on board
+            if (index & (1ULL << i))
+                // populate occupancy map
+                occupancy |= (1ULL << currentSquare);
+        }
+        return occupancy;
+    }
+
+    Bitboard GetRookSlidingAttacks(uint8_t square, Bitboard blockingPieces) {
+        const int8_t targetFile = square % 8;
+        const int8_t targetRank = square - targetFile;
+        const uint8_t _1RANK = 8,_1FILE = 1;
+        Bitboard attack = 0ULL, attacked;
+        
+        Bitboard shifted = 1ULL << targetRank;
+        for (int8_t file = targetFile - _1FILE; file >= File::A; --file) {
+            attacked = shifted << file;
+            attack |= attacked;
+            if (blockingPieces & attacked)
+                break;
+        }
+        for (int8_t file = targetFile + _1FILE; file <= File::H; ++file) {
+            attacked = shifted << file;
+            attack |= attacked;
+            if (blockingPieces & attacked)
+                break;
+        }
+
+        shifted = 1ULL << targetFile;
+        for (int8_t rank = targetRank - _1RANK; rank >= Rank::_1; rank -= _1RANK) {
+            attacked = shifted << rank;
+            attack |= attacked;
+            if (blockingPieces & attacked)
+                break;
+        }
+        for (int8_t rank = targetRank + _1RANK; rank <= Rank::_8; rank += _1RANK) {
+            attacked = shifted << rank;
+            attack |= attacked;
+            if (blockingPieces & attacked)
+                break;
+        }
+        return attack;
+    }
+
+    Bitboard GetBishopSlidingAttacks(uint8_t square, Bitboard blockingPieces) {
+        const int8_t targetFile = square % 8;
+        const int8_t targetRank = square - targetFile;
+        const uint8_t _1RANK = 8,_1FILE = 1;
+        Bitboard attack = 0ULL, attacked;
+
+        for (int8_t file = targetFile - _1FILE, rank = targetRank - _1RANK; file >= File::A && rank >= Rank::_1; --file, rank -= _1RANK) {
+            attacked = (1ULL << file) << rank;
+            attack |= attacked;
+            if (blockingPieces & attacked)
+                break;
+        }
+        for (int8_t file = targetFile + _1FILE, rank = targetRank + _1RANK; file <= File::H && rank <= Rank::_8; ++file, rank += _1RANK) {
+            attacked = (1ULL << file) << rank;
+            attack |= attacked;
+            if (blockingPieces & attacked)
+                break;
+        }
+        for (int8_t file = targetFile - _1FILE, rank = targetRank + _1RANK; file >= File::A && rank <= Rank::_8; --file, rank += _1RANK) {
+            attacked = (1ULL << file) << rank;
+            attack |= attacked;
+            if (blockingPieces & attacked)
+                break;
+        }
+        for (int8_t file = targetFile + _1FILE, rank = targetRank - _1RANK; file <= File::H && rank >= Rank::_1; ++file, rank -= _1RANK) {
+            attacked = (1ULL << file) << rank;
+            attack |= attacked;
+            if (blockingPieces & attacked)
+                break;
+        }
+        return attack;
+    }
+
+    void InitCache() {
+        Bitboard occupancy;
+        uint8_t count;
+        uint16_t hash, variants;
+        for (uint8_t square = 0; square < 64; ++square) {
+            count = rookRelevantBits[square];
+            variants = 1 << count;
+            for (uint16_t index = 0; index < variants; ++index) {
+                occupancy = FindOccupancy(index, rookMasks[square], count);
+                hash = Hash(square, occupancy, Rook);
+                rookCache[square][hash] = GetRookSlidingAttacks(square, occupancy);
+            }
+            count = bishopRelevantBits[square];
+            variants = 1 << count;
+            for (uint16_t index = 0; index < variants; ++index) {
+                occupancy = FindOccupancy(index, bishopMasks[square], count);
+                hash = Hash(square, occupancy, Bishop);
+                bishopCache[square][hash] = GetBishopSlidingAttacks(square, occupancy);
+            }
+        }
+    }
 }
 
-Chess::Bitboard Chess::GetKnightAttacks(Chess::Bitboard bitboard) noexcept {
-    Bitboard lr1 = bitboard >> 1 & ~Mask::straightRays[1][7] | bitboard << 1 & ~Mask::straightRays[1][0];
-    Bitboard lr2 = bitboard >> 2 & ~(Mask::straightRays[1][6] | Mask::straightRays[1][7]) |
-                   bitboard << 2 & ~(Mask::straightRays[1][0] | Mask::straightRays[1][1]);
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAttacks(Chess::Color color, Chess::Core::Bitboard bitboard) noexcept {
+    if (color == White)
+        return (bitboard << 7) & ~Cache::straightRays[1][0] | (bitboard << 9) & ~Cache::straightRays[1][7];
+    else return (bitboard >> 7) & ~Cache::straightRays[1][0] | (bitboard >> 9) & ~Cache::straightRays[1][7];
+}
+
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAdvances(Chess::Color color, Chess::Core::Bitboard bitboard) noexcept {
+    if (color == White)
+        return (bitboard << 8 | ((bitboard & Cache::straightRays[0][1]) << 16));
+    else return ((bitboard >> 8) | ((bitboard & Cache::straightRays[0][6]) >> 16));
+}
+
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetKnightAttacks(Chess::Core::Bitboard bitboard) noexcept {
+    Bitboard lr1 = bitboard >> 1 & ~Cache::straightRays[1][7] | bitboard << 1 & ~Cache::straightRays[1][0];
+    Bitboard lr2 = bitboard >> 2 & ~(Cache::straightRays[1][6] | Cache::straightRays[1][7]) |
+                   bitboard << 2 & ~(Cache::straightRays[1][0] | Cache::straightRays[1][1]);
     return lr1 << 16 | lr1 >> 16 | lr2 << 8 | lr2 >> 8;
 }
 
-Chess::Bitboard Chess::GetKingAttacks(Chess::Bitboard bitboard) noexcept {
-    Bitboard lr1 = bitboard >> 1 & ~Mask::straightRays[1][7] | bitboard << 1 & ~Mask::straightRays[1][0];
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetKingAttacks(Chess::Core::Bitboard bitboard) noexcept {
+    Bitboard lr1 = bitboard >> 1 & ~Cache::straightRays[1][7] | bitboard << 1 & ~Cache::straightRays[1][0];
     return lr1 | lr1 << 8 | lr1 >> 8 | bitboard << 8 | bitboard >> 8;
+}
+
+/**
+    Magic bitboards method for sliding pieces
+    @link (@https://www.chessprogramming.org/Magic_Bitboards) for description
+*/
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetRookAttacks(uint8_t square) {
+    Bitboard occupancy = _unionAll & Cache::rookMasks[square];
+    return Cache::rookCache[square][Cache::Hash(square, occupancy, Rook)];
+}
+
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetBishopAttacks(uint8_t square) {
+    Bitboard occupancy = _unionAll & Cache::bishopMasks[square];
+    return Cache::bishopCache[square][Cache::Hash(square, occupancy, Bishop)];
 }
