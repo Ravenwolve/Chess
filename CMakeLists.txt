@@ -8,6 +8,7 @@ add_executable(${PROJECT_NAME}
     src/Main.cpp
     src/Bitboard.cpp
     src/Position.cpp
+    src/Cache.cpp
     )
 
 target_compile_options(${PROJECT_NAME} PRIVATE -std=c++20)
