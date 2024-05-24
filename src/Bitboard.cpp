@@ -1,6 +1,16 @@
-#include "Bitboard.hpp"
+#include <Bitboard.hpp>
 #include <memory>
 #include <vector>
+#include <BitScan.hpp>
+
+using enum Chess::Types::Square;
+using Chess::Types::File;
+using Chess::Types::Rank;
+using Chess::Types::Square;
+using Chess::Types::Piece;
+using Chess::Types::Color;
+using Color::Black, Color::White;
+using Piece::Pawn, Piece::Rook, Piece::Knight, Piece::Bishop, Piece::Queen, Piece::King;
 
 // There is issue with bitNumber > 63 because of checking disabled for better performance
 bool Chess::Core::Get(const Bitboard& obj, const uint8_t bitNumber) {
@@ -44,7 +54,6 @@ Chess::Core::BoardRepresentation::BoardRepresentation(const BoardRepresentation 
 Chess::Core::BoardRepresentation::BoardRepresentation(const std::string& shortFEN) {
     for (size_t i = 0UL; i < 12UL; ++i)
         _pieces[White][i] = _pieces[Black][i] = 0;
-
     uint8_t x = 0, y = 7;
     Color color;
     for (char ch : shortFEN) {
@@ -61,13 +70,13 @@ Chess::Core::BoardRepresentation::BoardRepresentation(const std::string& shortFE
             }
             else color = Black;
 
-            switch (ch) {
-                case 'r': _pieces[color][Rook] |= 1ULL << y * 8 + x; break;
-                case 'n': _pieces[color][Knight] |= 1ULL << y * 8 + x; break;
-                case 'b': _pieces[color][Bishop] |= 1ULL << y * 8 + x; break;
-                case 'q': _pieces[color][Queen] |= 1ULL << y * 8 + x; break;
-                case 'k': _pieces[color][King] |= 1ULL << y * 8 + x; break;
-                case 'p': _pieces[color][Pawn] |= 1ULL << y * 8 + x; break;
+            switch (ch) {                               // y << 3 equals y * 8
+                case 'r': _pieces[color][Rook] |= 1ULL << (y << 3) + x; break;
+                case 'n': _pieces[color][Knight] |= 1ULL << (y << 3) + x; break;
+                case 'b': _pieces[color][Bishop] |= 1ULL << (y << 3) + x; break;
+                case 'q': _pieces[color][Queen] |= 1ULL << (y << 3) + x; break;
+                case 'k': _pieces[color][King] |= 1ULL << (y << 3) + x; break;
+                case 'p': _pieces[color][Pawn] |= 1ULL << (y << 3) + x; break;
             }
 
             ++x;
@@ -87,61 +96,26 @@ void Chess::Core::BoardRepresentation::UpdateBitboards() noexcept {
     _unionAll = _sides[White] | _sides[Black];
 }
 
-std::tuple<Chess::Core::ShortFEN, Chess::Color, Chess::Core::Castling, Chess::Core::EnPassant, Chess::Core::MovesWithoutCapturing, Chess::Core::NumberOfMove>
-Chess::Core::ParseFEN(const std::string &FEN) {
-    std::string splittedFEN[4];
-    MovesWithoutCapturing count;
-    NumberOfMove number;
-    std::stringstream ss(FEN);
-
-    for (size_t i = 0UL; i < 4UL; ++i)
-        ss >> splittedFEN[i];
-    ss >> count >> number;
-
-    Castling castling;
-    for (char ch : splittedFEN[2]) {
-        switch (ch) {
-        case 'K': castling.set(0); break;
-        case 'Q': castling.set(1); break;
-        case 'k': castling.set(2); break;
-        case 'q': castling.set(3); break;
-        }
-    }
-
-    return std::make_tuple(
-        splittedFEN[0],
-        splittedFEN[1][0] == 'w' ? White : Black,
-        castling,
-        splittedFEN[3][0] != '-' ? (size_t)(splittedFEN[3][0] - 'a') + (size_t)(splittedFEN[3][1] - '0') * 8 : 0,
-        count,
-        number
-        );
-}
-
 namespace Chess::Core::Cache {
-    static constexpr std::array<std::array<Bitboard, 16>, 2> straightRays = {
-        // -> =
-        std::array<Bitboard, 16> {
-            0b11111111ULL,
-            0b11111111ULL << 8,
-            0b11111111ULL << 16,
-            0b11111111ULL << 24,
-            0b11111111ULL << 32,
-            0b11111111ULL << 40,
-            0b11111111ULL << 48,
-            0b11111111ULL << 56
-        },
-        // -> ||
-        std::array<Bitboard, 16> {
-            1ULL   | (1ULL << 8)   | (1ULL << 16)   | (1ULL << 24)   | (1ULL << 32)   | (1ULL << 40)   | (1ULL << 48)   | (1ULL << 56),
-            2ULL   | (2ULL << 8)   | (2ULL << 16)   | (2ULL << 24)   | (2ULL << 32)   | (2ULL << 40)   | (2ULL << 48)   | (2ULL << 56),
-            4ULL   | (4ULL << 8)   | (4ULL << 16)   | (4ULL << 24)   | (4ULL << 32)   | (4ULL << 40)   | (4ULL << 48)   | (4ULL << 56),
-            8ULL   | (8ULL << 8)   | (8ULL << 16)   | (8ULL << 24)   | (8ULL << 32)   | (8ULL << 40)   | (8ULL << 48)   | (8ULL << 56),
-            16ULL  | (16ULL << 8)  | (16ULL << 16)  | (16ULL << 24)  | (16ULL << 32)  | (16ULL << 40)  | (16ULL << 48)  | (16ULL << 56),
-            32ULL  | (32ULL << 8)  | (32ULL << 16)  | (32ULL << 24)  | (32ULL << 32)  | (32ULL << 40)  | (32ULL << 48)  | (32ULL << 56),
-            64ULL  | (64ULL << 8)  | (64ULL << 16)  | (64ULL << 24)  | (64ULL << 32)  | (64ULL << 40)  | (64ULL << 48)  | (64ULL << 56),
-            128ULL | (128ULL << 8) | (128ULL << 16) | (128ULL << 24) | (128ULL << 32) | (128ULL << 40) | (128ULL << 48) | (128ULL << 56)
-        }
+    static constexpr std::array<Bitboard, 8> ranks {
+        0b11111111ULL,
+        0b11111111ULL << 8,
+        0b11111111ULL << 16,
+        0b11111111ULL << 24,
+        0b11111111ULL << 32,
+        0b11111111ULL << 40,
+        0b11111111ULL << 48,
+        0b11111111ULL << 56
+    };
+    static constexpr std::array<Bitboard, 8> files {
+        1ULL   | (1ULL << 8)   | (1ULL << 16)   | (1ULL << 24)   | (1ULL << 32)   | (1ULL << 40)   | (1ULL << 48)   | (1ULL << 56),
+        2ULL   | (2ULL << 8)   | (2ULL << 16)   | (2ULL << 24)   | (2ULL << 32)   | (2ULL << 40)   | (2ULL << 48)   | (2ULL << 56),
+        4ULL   | (4ULL << 8)   | (4ULL << 16)   | (4ULL << 24)   | (4ULL << 32)   | (4ULL << 40)   | (4ULL << 48)   | (4ULL << 56),
+        8ULL   | (8ULL << 8)   | (8ULL << 16)   | (8ULL << 24)   | (8ULL << 32)   | (8ULL << 40)   | (8ULL << 48)   | (8ULL << 56),
+        16ULL  | (16ULL << 8)  | (16ULL << 16)  | (16ULL << 24)  | (16ULL << 32)  | (16ULL << 40)  | (16ULL << 48)  | (16ULL << 56),
+        32ULL  | (32ULL << 8)  | (32ULL << 16)  | (32ULL << 24)  | (32ULL << 32)  | (32ULL << 40)  | (32ULL << 48)  | (32ULL << 56),
+        64ULL  | (64ULL << 8)  | (64ULL << 16)  | (64ULL << 24)  | (64ULL << 32)  | (64ULL << 40)  | (64ULL << 48)  | (64ULL << 56),
+        128ULL | (128ULL << 8) | (128ULL << 16) | (128ULL << 24) | (128ULL << 32) | (128ULL << 40) | (128ULL << 48) | (128ULL << 56)
     };
 
     static constexpr std::array<std::array<Bitboard, 15>, 2> diagonalRays = {
@@ -183,23 +157,23 @@ namespace Chess::Core::Cache {
         }
     };
 
-    consteval static std::array<Bitboard, 64> CalculateForRook() {
+    static consteval std::array<Bitboard, 64> CalculateRaysForRook() {
         std::array<Bitboard, 64> masks;
         const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
 
         for (uint8_t i = 0U; i < masks.size(); ++i)
-            masks[i] = (~(1ULL << i) & (straightRays[0][i / 8] | straightRays[1][i % 8])) &
-            ~((i > 8 ? straightRays[0][0] : 0ULL) | (i < 56 ? straightRays[0][7] : 0ULL) |
-            (i % 8 ? straightRays[1][0] : 0ULL) | ((i + 1) % 8 ? straightRays[1][7] : 0ULL));
+            masks[i] = (~(1ULL << i) & (ranks[i / 8] | files[i % 8])) &
+            ~((i > 8 ? ranks[0] : 0ULL) | (i < 56 ? ranks[7] : 0ULL) |
+            (i % 8 ? files[File::A] : 0ULL) | ((i + 1) % 8 ? files[File::H] : 0ULL));
 
         return masks;
     }
 
-    consteval static std::array<Bitboard, 64> CalculateForBishop() {
+    static consteval std::array<Bitboard, 64> CalculateRaysForBishop() {
         std::array<Bitboard, 64> masks;
         Bitboard sourceBit;
         const int8_t UP = 8, DOWN = -8, LEFT = -1, RIGHT = 1;
-        const Bitboard notFrame = ~(straightRays[0][0] | straightRays[0][7] | straightRays[1][0] | straightRays[1][7]);
+        const Bitboard notFrame = ~(ranks[0] | ranks[7] | files[File::A] | files[File::H]);
 
         for (uint8_t i = 0U; i < masks.size(); ++i) {
             sourceBit = 1ULL << i;
@@ -219,62 +193,35 @@ namespace Chess::Core::Cache {
         return masks;
     }
 
-    //static constexpr std::array<Bitboard, 64> knightMasks = CalculateForKnight();
-    static constexpr std::array<Bitboard, 64> rookMasks = CalculateForRook();
-    static constexpr std::array<Bitboard, 64> bishopMasks = CalculateForBishop();
-    //static constexpr std::array<Bitboard, 64> kingMasks = CalculateForKing();
-    //static constexpr std::array<Bitboard, 64> pawnMasks = Chess::Mask::CalculateForPawn();
-
-    consteval static std::array<Bitboard, 64> CalculateQueenMasks() {
+    static consteval std::array<Bitboard, 64> CalculateForKnight() {
         std::array<Bitboard, 64> masks;
-
-        for (uint8_t i = 0; i < 64; ++i)
-            masks[i] = rookMasks[i] | bishopMasks[i];
-
+        Bitboard tmp, lr1, lr2;
+        for (uint8_t sq = 0; sq < 64; ++sq) {
+            tmp = 1ULL << sq;
+            lr1 = tmp >> 1 & ~files[File::H] | tmp << 1 & ~files[File::A];
+            lr2 = tmp >> 2 & ~(files[File::G] | files[File::H]) |
+                       tmp << 2 & ~(files[File::A] | files[File::B]);
+            masks[sq] = lr1 << 16 | lr1 >> 16 | lr2 << 8 | lr2 >> 8;
+        }
         return masks;
     }
 
-    static constexpr std::array<Bitboard, 64> queenMasks = CalculateQueenMasks();
+    static consteval std::array<Bitboard, 64> CalculateForKing() {
+        std::array<Bitboard, 64> masks;
+        Bitboard tmp, lr;
+        for (uint8_t sq = 0; sq < 64; ++sq) {
+            tmp = 1ULL << sq;
+            lr = tmp >> 1 & ~files[File::H] | tmp << 1 & ~files[File::A];
+            masks[sq] = lr | lr << 8 | lr >> 8 | tmp << 8 | tmp >> 8;
+        }
+        return masks;
+    }
+
+    static constexpr std::array<Bitboard, 64> knightMasks = CalculateForKnight();
+    static constexpr std::array<Bitboard, 64> rookMasks = CalculateRaysForRook();
+    static constexpr std::array<Bitboard, 64> bishopMasks = CalculateRaysForBishop();
+    static constexpr std::array<Bitboard, 64> kingMasks = CalculateForKing();
 };
-
-namespace Chess::Core::BitScan {
-    constexpr std::array<uint8_t, 64> bitScanIndex {
-        0, 47, 1, 56, 48, 27, 2, 60,
-        57, 49, 41, 37, 28, 16, 3, 61,
-        54, 58, 35, 52, 50, 42, 21, 44,
-        38, 32, 29, 23, 17, 11, 4, 62,
-        46, 55, 26, 59, 40, 36, 15, 53,
-        34, 51, 20, 43, 31, 22, 10, 45,
-        25, 39, 14, 33, 19, 30, 9, 24,
-        13, 18, 8, 12, 7, 6, 5, 63
-    };
-
-    /**
-     * @author Kim Walisch (2012)
-     * @return index (0..63) of least significant one bit
-     */
-    // For search of the least significant bit
-    constexpr uint8_t Forward(Bitboard bitboard) {
-        const Bitboard debruijn64 = 0x03f79d71b4cb0a89ULL;
-        return bitScanIndex[((bitboard ^ (bitboard - 1)) * debruijn64) >> 58];
-    }
-
-    /**
-     * @authors Kim Walisch, Mark Dickinson
-     * @return index (0..63) of most significant one bit
-     */
-    // For search of the most significant bit
-    constexpr uint8_t Reverse(Bitboard bitboard) {
-        const Bitboard debruijn64 = 0x03f79d71b4cb0a89ULL;
-        bitboard |= bitboard >> 1;
-        bitboard |= bitboard >> 2;
-        bitboard |= bitboard >> 4;
-        bitboard |= bitboard >> 8;
-        bitboard |= bitboard >> 16;
-        bitboard |= bitboard >> 32;
-        return bitScanIndex[(bitboard * debruijn64) >> 58];
-    }
-}
 
 namespace Chess::Core::Cache {
     
@@ -288,7 +235,6 @@ namespace Chess::Core::Cache {
         11, 10, 10, 10, 10, 10, 10, 11,
         12, 11, 11, 11, 11, 11, 11, 12
     };
-
     const std::array<uint8_t, 64> bishopRelevantBits {
         6, 5, 5, 5, 5, 5, 5, 6,
         5, 5, 5, 5, 5, 5, 5, 5,
@@ -440,10 +386,10 @@ namespace Chess::Core::Cache {
         0x40102000a0a60140ULL,
     };
 
-    std::array<std::vector<Bitboard>, 64> rookCache; //[64][4096];
-    std::array<std::vector<Bitboard>, 64> bishopCache; //[64][512];
+    std::unique_ptr rookCache = std::make_unique<std::array<std::vector<Bitboard>, 64>>();
+    std::unique_ptr bishopCache = std::make_unique<std::array<std::vector<Bitboard>, 64>>();
 
-    uint8_t Hash(uint8_t square, Bitboard occupancy, Piece piece) {
+    uint8_t Hash(Square square, Bitboard occupancy, Piece piece) {
         if (piece == Rook)
             return (occupancy * rookMagics[square]) >> (64 - rookRelevantBits[square]);
         else return (occupancy * bishopMagics[square]) >> (64 - bishopRelevantBits[square]);
@@ -465,7 +411,7 @@ namespace Chess::Core::Cache {
         return occupancy;
     }
 
-    Bitboard GetRookSlidingAttacks(uint8_t square, Bitboard blockingPieces) {
+    Bitboard GetRookSlidingAttacks(Square square, Bitboard blockingPieces) {
         const int8_t targetFile = square % 8;
         const int8_t targetRank = square - targetFile;
         const uint8_t _1RANK = 8,_1FILE = 1;
@@ -484,7 +430,6 @@ namespace Chess::Core::Cache {
             if (blockingPieces & attacked)
                 break;
         }
-
         shifted = 1ULL << targetFile;
         for (int8_t rank = targetRank - _1RANK; rank >= Rank::_1; rank -= _1RANK) {
             attacked = shifted << rank;
@@ -501,7 +446,7 @@ namespace Chess::Core::Cache {
         return attack;
     }
 
-    Bitboard GetBishopSlidingAttacks(uint8_t square, Bitboard blockingPieces) {
+    Bitboard GetBishopSlidingAttacks(Square square, Bitboard blockingPieces) {
         const int8_t targetFile = square % 8;
         const int8_t targetRank = square - targetFile;
         const uint8_t _1RANK = 8,_1FILE = 1;
@@ -541,59 +486,71 @@ namespace Chess::Core::Cache {
         for (uint8_t square = 0; square < 64; ++square) {
             count = rookRelevantBits[square];
             variants = 1 << count;
-            rookCache[square].reserve(variants);
+            (*rookCache)[square].reserve(variants);
             for (uint16_t index = 0; index < variants; ++index) {
                 occupancy = FindOccupancy(index, rookMasks[square], count);
-                hash = Hash(square, occupancy, Rook);
-                rookCache[square][hash] = GetRookSlidingAttacks(square, occupancy);
+                hash = Hash(static_cast<Square>(square), occupancy, Rook);
+                (*rookCache)[square][hash] = GetRookSlidingAttacks(static_cast<Square>(square), occupancy);
             }
 
             count = bishopRelevantBits[square];
             variants = 1 << count;
-            bishopCache[square].reserve(variants);
+            (*bishopCache)[square].reserve(variants);
             for (uint16_t index = 0; index < variants; ++index) {
                 occupancy = FindOccupancy(index, bishopMasks[square], count);
-                hash = Hash(square, occupancy, Bishop);
-                bishopCache[square][hash] = GetBishopSlidingAttacks(square, occupancy);
+                hash = Hash(static_cast<Square>(square), occupancy, Bishop);
+                (*bishopCache)[square][hash] = GetBishopSlidingAttacks(static_cast<Square>(square), occupancy);
             }
         }
     }
 }
 
-Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAttacks(Chess::Color color, Chess::Core::Bitboard bitboard) noexcept {
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAttacks(Color color, Square square) noexcept {
     if (color == White)
-        return (bitboard << 7) & ~Cache::straightRays[1][0] | (bitboard << 9) & ~Cache::straightRays[1][7];
-    else return (bitboard >> 7) & ~Cache::straightRays[1][0] | (bitboard >> 9) & ~Cache::straightRays[1][7];
+        return ((1ULL << square) << 7) & ~Cache::files[File::H] | ((1ULL << square) << 9) & ~Cache::files[File::A] & _sides[Black];
+    else return ((1ULL << square) >> 7) & ~Cache::files[File::H] | ((1ULL << square) >> 9) & ~Cache::files[File::A] & _sides[White];
 }
 
-Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAdvances(Chess::Color color, Chess::Core::Bitboard bitboard) noexcept {
-    if (color == White)
-        return (bitboard << 8 | ((bitboard & Cache::straightRays[0][1]) << 16));
-    else return ((bitboard >> 8) | ((bitboard & Cache::straightRays[0][6]) >> 16));
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAdvances(Color color, Square square) noexcept {
+    Bitboard advance = (color == White ? (1ULL << square) << 8 : ((1ULL << square) >> 8)) & ~_unionAll; // Short
+    advance |= (color == White ? (advance & Rank::_3) << 8 : ((advance & Rank::_6) >> 8)) & ~_unionAll; // Long
+    return advance;
 }
 
-Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetKnightAttacks(Chess::Core::Bitboard bitboard) noexcept {
-    Bitboard lr1 = bitboard >> 1 & ~Cache::straightRays[1][7] | bitboard << 1 & ~Cache::straightRays[1][0];
-    Bitboard lr2 = bitboard >> 2 & ~(Cache::straightRays[1][6] | Cache::straightRays[1][7]) |
-                   bitboard << 2 & ~(Cache::straightRays[1][0] | Cache::straightRays[1][1]);
-    return lr1 << 16 | lr1 >> 16 | lr2 << 8 | lr2 >> 8;
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetKnightAttacks(Color color, Square square) noexcept {
+    return Cache::knightMasks[square] & ~_sides[color];
 }
 
-Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetKingAttacks(Chess::Core::Bitboard bitboard) noexcept {
-    Bitboard lr1 = bitboard >> 1 & ~Cache::straightRays[1][7] | bitboard << 1 & ~Cache::straightRays[1][0];
-    return lr1 | lr1 << 8 | lr1 >> 8 | bitboard << 8 | bitboard >> 8;
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetKingAttacks(Color color, Square square) noexcept {
+    return Cache::kingMasks[square] & ~_sides[color];
 }
 
 /**
     Magic bitboards method for sliding pieces
     @link (@https://www.chessprogramming.org/Magic_Bitboards) for description
 */
-Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetRookAttacks(uint8_t square) {
-    Bitboard occupancy = _unionAll & Cache::rookMasks[square];
-    return Cache::rookCache[square][Cache::Hash(square, occupancy, Rook)];
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetRookAttacks(Color color, Square square) {
+    return (*Cache::rookCache)[square][Cache::Hash(square, _unionAll & Cache::rookMasks[square], Rook)] & ~_sides[color];
 }
 
-Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetBishopAttacks(uint8_t square) {
-    Bitboard occupancy = _unionAll & Cache::bishopMasks[square];
-    return Cache::bishopCache[square][Cache::Hash(square, occupancy, Bishop)];
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetBishopAttacks(Color color, Square square) {
+    return (*Cache::bishopCache)[square][Cache::Hash(square, _unionAll & Cache::bishopMasks[square], Bishop)] & ~_sides[color];
+}
+
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetQueenAttacks(Color color, Square square) {
+    return GetBishopAttacks(color, square) | GetRookAttacks(color, square);
+}
+
+void Chess::Core::BoardRepresentation::AddPiece(Color color, Piece piece, Square square) {
+    _pieces[color][piece] |= 1ULL << square;
+    UpdateBitboards();
+}
+
+void Chess::Core::BoardRepresentation::RemovePiece(Color color, Piece piece, Square square) {
+    _pieces[color][piece] &= ~(1ULL << square);
+    UpdateBitboards();
+}
+
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPieces(Color color, Piece piece) {
+    return _pieces[color][piece];
 }
