@@ -16,7 +16,7 @@ namespace Chess::Core {
 
         std::vector<Types::Move> _moves;
 
-        void GenerateMovesForPiece(Piece piece, Square square);
+        void GenerateMovesForPiece(Types::Piece piece, Types::Square square);
     public:
         Position() noexcept;
         Position(const Position& other) noexcept;

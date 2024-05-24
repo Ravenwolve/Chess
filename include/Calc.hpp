@@ -13,7 +13,6 @@ namespace Chess::Core::Cache::Calc {
             masks[i] = (~(1ULL << i) & (Masks::ranks[i / 8] | Masks::files[i % 8])) &
             ~((i > 8 ? Masks::ranks[0] : 0ULL) | (i < 56 ? Masks::ranks[7] : 0ULL) |
             (i % 8 ? Masks::files[A] : 0ULL) | ((i + 1) % 8 ? Masks::files[H] : 0ULL));
-
         return masks;
     }
 

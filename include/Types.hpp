@@ -1,3 +1,4 @@
+#pragma once
 #include <cstdint>
 
 namespace Chess {
@@ -5,7 +6,7 @@ namespace Chess {
         enum Color : uint8_t {
             White,
             Black,
-            None
+            NoneColor
         };
 
         enum Piece : uint8_t {
@@ -15,7 +16,7 @@ namespace Chess {
             Bishop,
             Queen,
             King,
-            None
+            NonePiece
         };
 
         enum Square : uint8_t {

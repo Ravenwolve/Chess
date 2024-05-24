@@ -3,7 +3,6 @@
 #include <Cache.hpp>
 #include <Masks.hpp>
 
-using enum Chess::Types::Square;
 using Chess::Types::File;
 using Chess::Types::Rank;
 using Chess::Types::Square;
@@ -17,11 +16,14 @@ bool Chess::Core::Get(const Bitboard& obj, const uint8_t bitNumber) {
     return obj & (1ULL << bitNumber);
 }
 
-template <bool bitValue>
-void Chess::Core::Set(Bitboard& obj, const uint8_t bitNumber) {
-    if constexpr (bitValue)
-        obj |= 1ULL << bitNumber;
-    else obj &= ~(1ULL << bitNumber);
+template <>
+void Chess::Core::Set<1>(Bitboard& obj, const uint8_t bitNumber) {
+    obj |= 1ULL << bitNumber;
+}
+
+template<>
+void Chess::Core::Set<0>(Bitboard& obj, const uint8_t bitNumber) {
+    obj &= ~(1ULL << bitNumber);
 }
 
 // --
@@ -96,23 +98,23 @@ void Chess::Core::BoardRepresentation::UpdateBitboards() noexcept {
     _unionAll = _sides[White] | _sides[Black];
 }
 
-Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAttacks(Color color, Square square) noexcept {
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAttacks(Color color, Square square) {
     if (color == White)
         return ((1ULL << square) << 7) & ~Masks::files[File::H] | ((1ULL << square) << 9) & ~Masks::files[File::A] & _sides[Black];
     else return ((1ULL << square) >> 7) & ~Masks::files[File::H] | ((1ULL << square) >> 9) & ~Masks::files[File::A] & _sides[White];
 }
 
-Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAdvances(Color color, Square square) noexcept {
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAdvances(Color color, Square square) {
     Bitboard advance = (color == White ? (1ULL << square) << 8 : ((1ULL << square) >> 8)) & ~_unionAll; // Short
     advance |= (color == White ? (advance & Rank::_3) << 8 : ((advance & Rank::_6) >> 8)) & ~_unionAll; // Long
     return advance;
 }
 
-Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetKnightAttacks(Color color, Square square) noexcept {
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetKnightAttacks(Color color, Square square) {
     return Cache::GetCache(Knight, square) & ~_sides[color];
 }
 
-Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetKingAttacks(Color color, Square square) noexcept {
+Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetKingAttacks(Color color, Square square) {
     return Cache::GetCache(King, square) & ~_sides[color];
 }
 
