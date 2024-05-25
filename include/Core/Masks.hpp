@@ -1,6 +1,6 @@
 #pragma once
 #include <array>
-#include <Types.hpp>
+#include <Core/Types.hpp>
 
 namespace Chess::Core::Masks {
        static constexpr std::array<Bitboard, 8> ranks {

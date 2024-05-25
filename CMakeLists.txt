@@ -5,10 +5,15 @@ SET(PROJECT_NAME Chess)
 project(${PROJECT_NAME})
 
 add_executable(${PROJECT_NAME}
-    src/Main.cpp
-    src/Bitboard.cpp
-    src/Position.cpp
-    src/Cache.cpp
+    src/Core/Bitboard.cpp
+    src/Core/Position.cpp
+    src/Core/Cache.cpp
+
+    src/CLI/Image.cpp
+    src/CLI/Console.cpp
+    src/CLI/Main.cpp
+    
+    src/Logic/Logic.cpp
     )
 
 target_compile_options(${PROJECT_NAME} PRIVATE -std=c++20)

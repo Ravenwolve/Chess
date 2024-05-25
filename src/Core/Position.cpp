@@ -1,7 +1,7 @@
-#include <Position.hpp>
+#include <Core/Position.hpp>
 #include <sstream>
-#include <BitScan.hpp>
-#include <Masks.hpp>
+#include <Core/BitScan.hpp>
+#include <Core/Masks.hpp>
 #include <functional>
 
 using enum Chess::Types::Square;
@@ -47,7 +47,7 @@ Chess::Core::Position::Position(const std::string& FEN) {
     _enPassant = static_cast<Square>(splittedFEN[3][0] != '-' ? (Square)(splittedFEN[3][0] - 'a') + ((Square)(splittedFEN[3][1] - '0') << 3) : Square::None);
 }
 
-void Chess::Core::Position::Apply(Move move) {
+void Chess::Core::Position::Apply(const Move& move) {
     _board.AddPiece(move.attackerColor, move.attackerType, move.to);
     const uint8_t _1RANK = 8U, _2RANK = 16U, _1FILE = 1U;
     const Square oldEnPassant = _enPassant;
@@ -97,17 +97,59 @@ void Chess::Core::Position::Apply(Move move) {
     _playerNow = (Color)!_playerNow;
 }
 
+bool Chess::Core::Position::IsLegal(const Move& move) {
+    Position copy = *this;
+    copy.Apply(move);
+    Bitboard kingMask = copy._board.GetPieces(move.attackerColor, King);
+    Square square;
+    Bitboard attackMask = _board.GetPieces(static_cast<Color>(!move.attackerColor), Queen);
+
+    std::function GetAttacks = [&copy](Color color, Piece piece, Square square)->Bitboard {
+        switch (piece) {
+            case Queen: return copy._board.GetQueenAttacks(color, square);
+            case Rook: return copy._board.GetRookAttacks(color, square);
+            case Bishop: return copy._board.GetBishopAttacks(color, square);
+            case Knight: return copy._board.GetKnightAttacks(color, square);
+            case Pawn: return copy._board.GetPawnAttacks(color, square);
+            case King: return copy._board.GetKingAttacks(color, square);
+            default: return 0ULL;
+        }
+    };
+
+    std::function BruteForcePieces = [&copy, &GetAttacks](Bitboard attackMask, Bitboard kingMask, Color color, Piece piece, bool& isIllegalExactly)->void {
+        Square square;
+        while (attackMask) {
+            square = BitScan::Forward(attackMask);
+            Set<0>(attackMask, square);
+            if (GetAttacks(color, piece, square) & kingMask) {
+                isIllegalExactly = true;
+                break;
+            }
+        }
+    };
+    bool isIllegalExactly = false;
+    for (uint8_t piece = 0; piece < 5; ++piece) {
+        BruteForcePieces(_board.GetPieces(static_cast<Color>(!move.attackerColor), static_cast<Piece>(piece)),
+                        kingMask, static_cast<Color>(!move.attackerColor), static_cast<Piece>(piece), isIllegalExactly);
+        if (isIllegalExactly)
+            return false;
+    }
+    return true;
+}
+
 // Unreadable because of optimization
 void Chess::Core::Position::GenerateMovesForPiece(Piece piece, Square square) {
+    _moves.clear();
     uint8_t x = square % 8, y = square / 8;
     Bitboard movesMask = 0ULL;
 
     // Searching attacked squares and defenders on the board
-    std::function SearchPieces = [&square, &piece](std::vector<Move>& moves, Bitboard movesMask, bool searchDefenders, Color player, BoardRepresentation& board)->void {
+    std::function SearchPieces = [&square, &piece, this](std::vector<Move>& moves, Bitboard movesMask, bool searchDefenders, Color player, BoardRepresentation& board)->void {
         Square target;
         Piece targetPiece = Piece::NonePiece;
         Color targetColor = Color::NoneColor;
         Bitboard targetMask;
+        Move move;
         while (movesMask) {
             target = BitScan::Forward(movesMask);
             Set<0>(movesMask, target);
@@ -121,11 +163,13 @@ void Chess::Core::Position::GenerateMovesForPiece(Piece piece, Square square) {
                         targetColor = static_cast<Color>(!player);
                     }
             }
-            moves.push_back({square, target, piece, targetPiece, player, targetColor});
+            move = {square, target, piece, targetPiece, player, targetColor};
+            if (IsLegal(move))
+                moves.push_back(move);
         }
     };
     // Searching defenders on the board for sliding pieces (sliding piece have between 0 and 4 attacked pieces)
-    std::function SearchExtremePieces = [&square, &piece](std::vector<Move>& moves, Bitboard& movesMask, Color player, BoardRepresentation& board, bool isRook)->void {
+    std::function SearchExtremePieces = [&square, &piece, this](std::vector<Move>& moves, Bitboard& movesMask, Color player, BoardRepresentation& board, bool isRook)->void {
         uint8_t x = square % 8, y = square / 8;
         Bitboard vertical = isRook ? movesMask & Masks::files[x] : movesMask & Masks::diagonalRays[0][7 - x + y];
         Bitboard horizontal = isRook ? movesMask & Masks::ranks[y] : movesMask & Masks::diagonalRays[1][x + y];
@@ -160,10 +204,18 @@ void Chess::Core::Position::GenerateMovesForPiece(Piece piece, Square square) {
             else if (lowMask & targetPieceMask)
                 rightPiece = static_cast<Piece>(i);
         }
-        moves.push_back({square, upExtreme, piece, upPiece, player, upPiece != Piece::NonePiece ? static_cast<Color>(!player) : Color::NoneColor});
-        moves.push_back({square, lowExtreme, piece, lowPiece, player, lowPiece != Piece::NonePiece ? static_cast<Color>(!player) : Color::NoneColor});
-        moves.push_back({square, leftExtreme, piece, leftPiece, player, leftPiece != Piece::NonePiece ? static_cast<Color>(!player) : Color::NoneColor});
-        moves.push_back({square, rightExtreme, piece, rightPiece, player, rightPiece != Piece::NonePiece ? static_cast<Color>(!player) : Color::NoneColor});
+        Move move = {square, upExtreme, piece, upPiece, player, upPiece != Piece::NonePiece ? static_cast<Color>(!player) : Color::NoneColor};
+        if (IsLegal(move))
+            moves.push_back(move);
+        move = {square, lowExtreme, piece, lowPiece, player, lowPiece != Piece::NonePiece ? static_cast<Color>(!player) : Color::NoneColor};
+        if (IsLegal(move))
+            moves.push_back(move);
+        move = {square, leftExtreme, piece, leftPiece, player, leftPiece != Piece::NonePiece ? static_cast<Color>(!player) : Color::NoneColor};
+        if (IsLegal(move))
+            moves.push_back(move);
+        move = {square, rightExtreme, piece, rightPiece, player, rightPiece != Piece::NonePiece ? static_cast<Color>(!player) : Color::NoneColor};
+        if (IsLegal(move))
+            moves.push_back(move);
         movesMask = vertical | horizontal;
     };
 
@@ -239,4 +291,24 @@ void Chess::Core::Position::GenerateMoves() {
         GenerateMovesForPiece(Queen, attacker);
     }
     GenerateMovesForPiece(Knight, BitScan::Forward(king));
+}
+
+std::pair<Color, Piece> Chess::Core::Position::GetPiece(Types::Square square) {
+    Bitboard mask = 1ULL << square;
+    for (uint8_t c = 0U; c < 2U; ++c)
+        for (uint8_t p = 0U; p < 6U; ++p)
+            if (_board.GetPieces(static_cast<Color>(c), static_cast<Piece>(p)) & mask)
+                return { static_cast<Color>(c), static_cast<Piece>(p) };
+    return { Color::NoneColor, Piece::NonePiece };
+}
+
+Chess::Types::Color Chess::Core::Position::PlayerNow() noexcept { 
+    return _playerNow;
+}
+
+bool Chess::Core::Position::InMoves(Types::Square target) {
+    for (Move& move : _moves)
+        if (move.to == target)
+            return true;
+    return false;
 }

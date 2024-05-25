@@ -1,7 +1,7 @@
 #pragma once
 #include <cstdint>
 #include <array>
-#include <Types.hpp>
+#include <Core/Types.hpp>
 
 namespace Chess::Core::BitScan {
     static constexpr std::array<uint8_t, 64> bitScanIndex {

@@ -1,5 +1,5 @@
 #pragma once
-#include <Types.hpp>
+#include <Core/Types.hpp>
 
 namespace Chess::Types {
     struct Move {

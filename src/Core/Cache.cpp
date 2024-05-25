@@ -1,7 +1,7 @@
-#include <Cache.hpp>
+#include <Core/Cache.hpp>
 #include <vector>
-#include <Types.hpp>
-#include <BitScan.hpp>
+#include <Core/Types.hpp>
+#include <Core/BitScan.hpp>
 
 using Chess::Types::Square;
 using Chess::Types::Piece;

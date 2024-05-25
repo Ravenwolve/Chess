@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
-#include <Types.hpp>
-#include <Masks.hpp>
+#include <Core/Types.hpp>
+#include <Core/Masks.hpp>
 
 namespace Chess::Core::Cache::Calc {
     static consteval std::array<Bitboard, 64> CalculateRaysForRook() {

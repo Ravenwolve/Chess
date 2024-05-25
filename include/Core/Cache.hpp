@@ -1,7 +1,7 @@
 #pragma once
 #include <array>
 #include <cstdint>
-#include <Calc.hpp>
+#include <Core/Calc.hpp>
 
 namespace Chess::Core::Cache {
     void InitCache();

@@ -1,10 +1,11 @@
 #pragma once
-#include <Bitboard.hpp>
-#include <Move.hpp>
+#include <Core/Bitboard.hpp>
+#include <Core/Move.hpp>
 #include <vector>
 
 namespace Chess::Core {
     class Position {
+    protected:
         BoardRepresentation _board;
         Types::Color _playerNow;
         Types::Square _enPassant;
@@ -15,13 +16,16 @@ namespace Chess::Core {
         uint8_t _rule50Counter;
 
         std::vector<Types::Move> _moves;
-
-        void GenerateMovesForPiece(Types::Piece piece, Types::Square square);
     public:
         Position() noexcept;
         Position(const Position& other) noexcept;
         Position(const std::string& FEN);
-        void Apply(Types::Move move);
+        void Apply(const Types::Move& move);
+        void GenerateMovesForPiece(Types::Piece piece, Types::Square square);
         void GenerateMoves();
+        bool IsLegal(const Types::Move& move);
+        bool InMoves(Types::Square target);
+        std::pair<Types::Color, Types::Piece> GetPiece(Types::Square square);
+        Types::Color PlayerNow() noexcept;
     };
 }

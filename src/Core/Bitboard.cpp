@@ -1,7 +1,7 @@
-#include <Bitboard.hpp>
-#include <BitScan.hpp>
-#include <Cache.hpp>
-#include <Masks.hpp>
+#include <Core/Bitboard.hpp>
+#include <Core/BitScan.hpp>
+#include <Core/Cache.hpp>
+#include <Core/Masks.hpp>
 
 using Chess::Types::File;
 using Chess::Types::Rank;
@@ -25,8 +25,6 @@ template<>
 void Chess::Core::Set<0>(Bitboard& obj, const uint8_t bitNumber) {
     obj &= ~(1ULL << bitNumber);
 }
-
-// --
 
 Chess::Core::BoardRepresentation::BoardRepresentation()
     noexcept : _pieces {
