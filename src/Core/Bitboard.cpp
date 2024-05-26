@@ -47,7 +47,10 @@ Chess::Core::BoardRepresentation::BoardRepresentation()
     }, _sides {
         _pieces[White][Pawn] | _pieces[White][Rook] | _pieces[White][Knight] | _pieces[White][Bishop] | _pieces[White][Queen] | _pieces[White][King],
         _pieces[Black][Pawn] | _pieces[Black][Rook] | _pieces[Black][Knight] | _pieces[Black][Bishop] | _pieces[Black][Queen] | _pieces[Black][King]
-    }, _unionAll(_sides[White] | _sides[Black]) { }
+    }, _unionAll(_sides[White] | _sides[Black]) {
+        if (!Cache::cacheInitialized)
+            Cache::InitCache();
+    }
 
 Chess::Core::BoardRepresentation::BoardRepresentation(const BoardRepresentation &other) noexcept = default;
 
@@ -84,6 +87,8 @@ Chess::Core::BoardRepresentation::BoardRepresentation(const std::string& shortFE
     }
 
     UpdateBitboards();
+    if (!Cache::cacheInitialized)
+        Cache::InitCache();
 }
 
 void Chess::Core::BoardRepresentation::UpdateBitboards() noexcept {
@@ -98,13 +103,14 @@ void Chess::Core::BoardRepresentation::UpdateBitboards() noexcept {
 
 Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAttacks(Color color, Square square) {
     if (color == White)
-        return ((1ULL << square) << 7) & ~Masks::files[File::H] | ((1ULL << square) << 9) & ~Masks::files[File::A] & _sides[Black];
-    else return ((1ULL << square) >> 7) & ~Masks::files[File::H] | ((1ULL << square) >> 9) & ~Masks::files[File::A] & _sides[White];
+        return (((1ULL << square) << 7) & ~Masks::files[File::H] | ((1ULL << square) << 9) & ~Masks::files[File::A]) & _sides[Black];
+    else return (((1ULL << square) >> 7) & ~Masks::files[File::H] | ((1ULL << square) >> 9) & ~Masks::files[File::A]) & _sides[White];
 }
 
 Chess::Core::Bitboard Chess::Core::BoardRepresentation::GetPawnAdvances(Color color, Square square) {
+    auto arr = Masks::ranks;
     Bitboard advance = (color == White ? (1ULL << square) << 8 : ((1ULL << square) >> 8)) & ~_unionAll; // Short
-    advance |= (color == White ? (advance & Rank::_3) << 8 : ((advance & Rank::_6) >> 8)) & ~_unionAll; // Long
+    advance |= (color == White ? (advance & Masks::ranks[2]) << 8 : ((advance & Masks::ranks[5]) >> 8)) & ~_unionAll; // Long
     return advance;
 }
 

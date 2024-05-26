@@ -18,7 +18,6 @@
 
 
 int main() {
-    bool end = true;
     Chess::UI::CLI obj;
-    obj.Refresh();
+    obj.Open();
 }

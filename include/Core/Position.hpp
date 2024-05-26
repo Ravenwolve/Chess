@@ -12,10 +12,14 @@ namespace Chess::Core {
         std::array<bool, 2> _shortCastlingPossible;
         std::array<bool, 2> _longCastlingPossible;
         std::array<bool, 2> _castlingHappened;
+        bool _isCheck;
         uint16_t _moveCounter;
         uint8_t _rule50Counter;
 
         std::vector<Types::Move> _moves;
+        void GenerateEnPassantMove(Types::Square square);
+        void GenerateShortCastlingMove(Types::Color color);
+        void GenerateLongCastlingMove(Types::Color color);
     public:
         Position() noexcept;
         Position(const Position& other) noexcept;
@@ -24,8 +28,11 @@ namespace Chess::Core {
         void GenerateMovesForPiece(Types::Piece piece, Types::Square square);
         void GenerateMoves();
         bool IsLegal(const Types::Move& move);
+        bool IsCheck();
+        bool NoMoves();
         bool InMoves(Types::Square target);
         std::pair<Types::Color, Types::Piece> GetPiece(Types::Square square);
         Types::Color PlayerNow() noexcept;
+        Types::Square GetEnPassant() noexcept;
     };
 }

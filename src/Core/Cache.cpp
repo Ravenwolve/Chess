@@ -293,6 +293,7 @@ void Chess::Core::Cache::InitCache() {
             bishopCache[square][hash] = GetBishopSlidingAttacks(static_cast<Square>(square), occupancy);
         }
     }
+    cacheInitialized = true;
 }
 
 Chess::Core::Bitboard Chess::Core::Cache::GetCache(Piece piece, Square square, uint16_t index) {
