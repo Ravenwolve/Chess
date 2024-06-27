@@ -1,6 +1,6 @@
 cmake_minimum_required(VERSION 3.22 FATAL_ERROR)
 
-SET(PROJECT_NAME Chess)
+set(PROJECT_NAME Chess)
 
 project(${PROJECT_NAME})
 
